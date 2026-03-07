@@ -194,7 +194,7 @@ async function logout() {
   try {
     await apiFetch("/api/logout", { method: "POST" });
   } finally {
-    window.location.href = "/login.html";
+    window.location.href = "/";
   }
 }
 
