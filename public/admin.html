@@ -174,6 +174,23 @@
 
     <!-- Sidebar -->
     <nav class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+      <div class="sidebar__section-title">System</div>
+
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="services" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">🖥</span>
+        <span>Servers</span>
+        <span class="count" id="services-count" aria-label="running servers">0</span>
+      </div>
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="resources" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">📊</span>
+        <span>Resources</span>
+      </div>
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">⚙</span>
+        <span>Settings</span>
+      </div>
+
+      <hr class="sidebar__divider">
       <div class="sidebar__section-title">Users</div>
 
       <div class="sidebar__item active focus-ring" tabindex="0" data-nav-item data-tab="pending" role="button" aria-pressed="true">
@@ -185,23 +202,6 @@
         <span class="icon" aria-hidden="true">👥</span>
         <span>All Users</span>
         <span class="count" id="all-count" aria-label="all users">0</span>
-      </div>
-
-      <hr class="sidebar__divider">
-      <div class="sidebar__section-title">System</div>
-
-      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="resources" role="button" aria-pressed="false">
-        <span class="icon" aria-hidden="true">📊</span>
-        <span>Resources</span>
-      </div>
-      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="services" role="button" aria-pressed="false">
-        <span class="icon" aria-hidden="true">🖥</span>
-        <span>Services</span>
-        <span class="count" id="services-count" aria-label="running services">0</span>
-      </div>
-      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
-        <span class="icon" aria-hidden="true">⚙</span>
-        <span>Settings</span>
       </div>
     </nav>
 
@@ -334,7 +334,7 @@
           <div class="panel">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">🖥</span>
-              Game Server Services
+              Game Servers
             </div>
             <div class="overflow-auto">
               <table class="tui-table" id="services-table" aria-label="Services table">
@@ -442,11 +442,11 @@
         <tbody>
           <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Move down in list</td></tr>
           <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
-          <tr><td><kbd>1</kbd></td><td>Pending Users tab</td></tr>
-          <tr><td><kbd>2</kbd></td><td>All Users tab</td></tr>
-          <tr><td><kbd>3</kbd></td><td>Resources tab</td></tr>
-          <tr><td><kbd>4</kbd></td><td>Services tab</td></tr>
-          <tr><td><kbd>5</kbd></td><td>Settings tab</td></tr>
+          <tr><td><kbd>1</kbd></td><td>Servers tab</td></tr>
+          <tr><td><kbd>2</kbd></td><td>Resources tab</td></tr>
+          <tr><td><kbd>3</kbd></td><td>Settings tab</td></tr>
+          <tr><td><kbd>4</kbd></td><td>Pending Users tab</td></tr>
+          <tr><td><kbd>5</kbd></td><td>All Users tab</td></tr>
           <tr><td><kbd>r</kbd></td><td>Refresh data</td></tr>
           <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
           <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
@@ -546,11 +546,11 @@
     // Global shortcuts
     registerGlobalShortcuts({
       "?": () => helpDialog.classList.toggle("hidden"),
-      "1": () => switchTab("pending"),
-      "2": () => switchTab("all-users"),
-      "3": () => switchTab("resources"),
-      "4": () => switchTab("services"),
-      "5": () => switchTab("settings"),
+      "1": () => switchTab("services"),
+      "2": () => switchTab("resources"),
+      "3": () => switchTab("settings"),
+      "4": () => switchTab("pending"),
+      "5": () => switchTab("all-users"),
       "r": () => { loadUsers(); pollSystem(); loadServices(); },
       "q": () => logout(),
       "Escape": () => helpDialog.classList.add("hidden"),
