@@ -15,6 +15,116 @@
     .tab-pane.active { display: flex; flex-direction: column; flex: 1; overflow: auto; }
     .user-row td { vertical-align: middle; }
     .actions-cell { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    /* ── Title-bar sparklines ──────────────────────────── */
+    .titlebar__graphs {
+      display: flex;
+      gap: 0.85rem;
+      margin-right: 0.5rem;
+      font-size: 0.68rem;
+      align-items: center;
+    }
+    .titlebar__graph {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--overlay1);
+    }
+    .titlebar__graph-label {
+      color: var(--subtext0);
+      font-weight: 600;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .titlebar__graph-spark {
+      font-family: var(--font-mono);
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .titlebar__graph-val {
+      min-width: 2.6em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .titlebar__graph-spark.green  { color: var(--green); }
+    .titlebar__graph-spark.yellow { color: var(--yellow); }
+    .titlebar__graph-spark.red    { color: var(--red); }
+
+    /* ── Resource meters ───────────────────────────────── */
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.75rem;
+    }
+    .resource-card {
+      background: var(--mantle);
+      border: var(--border-width) solid var(--surface1);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .resource-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .resource-card__title {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .resource-card__pct {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .resource-card__pct.green  { color: var(--green); }
+    .resource-card__pct.yellow { color: var(--yellow); }
+    .resource-card__pct.red    { color: var(--red); }
+    .resource-bar {
+      height: 6px;
+      background: var(--surface0);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+    .resource-bar__fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+    .resource-bar__fill.green  { background: var(--green); }
+    .resource-bar__fill.yellow { background: var(--yellow); }
+    .resource-bar__fill.red    { background: var(--red); }
+    .resource-card__detail {
+      font-size: 0.72rem;
+      color: var(--overlay1);
+    }
+    .resource-card__spark {
+      margin-top: 0.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .resource-card__spark.green  { color: var(--green); }
+    .resource-card__spark.yellow { color: var(--yellow); }
+    .resource-card__spark.red    { color: var(--red); }
+
+    /* ── Services table tweaks ─────────────────────────── */
+    .svc-status { display: flex; align-items: center; gap: 0.35rem; }
+    .svc-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .svc-dot.running  { background: var(--green); }
+    .svc-dot.stopped  { background: var(--overlay0); }
+    .svc-dot.starting { background: var(--blue); animation: pulse 2s ease-in-out infinite; }
   </style>
 </head>
 <body>
@@ -32,6 +142,26 @@
       </span>
     </nav>
     <div class="titlebar__spacer"></div>
+
+    <!-- Mini sparkline graphs -->
+    <div class="titlebar__graphs" id="titlebar-graphs">
+      <div class="titlebar__graph">
+        <span class="titlebar__graph-label">CPU</span>
+        <span class="titlebar__graph-spark green" id="tb-cpu-spark"></span>
+        <span class="titlebar__graph-val" id="tb-cpu-val">--%</span>
+      </div>
+      <div class="titlebar__graph">
+        <span class="titlebar__graph-label">RAM</span>
+        <span class="titlebar__graph-spark green" id="tb-ram-spark"></span>
+        <span class="titlebar__graph-val" id="tb-ram-val">--%</span>
+      </div>
+      <div class="titlebar__graph">
+        <span class="titlebar__graph-label">GPU</span>
+        <span class="titlebar__graph-spark green" id="tb-gpu-spark"></span>
+        <span class="titlebar__graph-val" id="tb-gpu-val">--%</span>
+      </div>
+    </div>
+
     <div class="titlebar__status">
       <div class="dot"></div>
       <span id="nav-username">admin</span>
@@ -68,6 +198,15 @@
       <hr class="sidebar__divider">
       <div class="sidebar__section-title">System</div>
 
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="resources" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">📊</span>
+        <span>Resources</span>
+      </div>
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="services" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">🖥</span>
+        <span>Services</span>
+        <span class="count" id="services-count" aria-label="running services">0</span>
+      </div>
       <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
         <span class="icon" aria-hidden="true">⚙</span>
         <span>Settings</span>
@@ -137,6 +276,92 @@
                   <tr id="all-empty">
                     <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
                       No users found
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tab: Resources ────────────────────────────── -->
+      <section class="tab-pane" id="tab-resources" aria-label="System resources">
+        <div class="content-area">
+
+          <div class="flex items-center justify-between" style="margin-bottom:0.25rem">
+            <h2 style="font-size:0.85rem; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.07em">
+              System Resources
+            </h2>
+            <span class="text-xs text-muted" id="res-uptime">Uptime: —</span>
+          </div>
+
+          <div class="resource-grid">
+            <!-- CPU -->
+            <div class="resource-card">
+              <div class="resource-card__head">
+                <span class="resource-card__title">🔲 CPU</span>
+                <span class="resource-card__pct green" id="res-cpu-pct">--%</span>
+              </div>
+              <div class="resource-bar"><div class="resource-bar__fill green" id="res-cpu-bar" style="width:0%"></div></div>
+              <div class="resource-card__detail" id="res-cpu-detail">— cores</div>
+              <div class="resource-card__spark green" id="res-cpu-spark"></div>
+            </div>
+            <!-- RAM -->
+            <div class="resource-card">
+              <div class="resource-card__head">
+                <span class="resource-card__title">💾 RAM</span>
+                <span class="resource-card__pct green" id="res-ram-pct">--%</span>
+              </div>
+              <div class="resource-bar"><div class="resource-bar__fill green" id="res-ram-bar" style="width:0%"></div></div>
+              <div class="resource-card__detail" id="res-ram-detail">— / — MB</div>
+              <div class="resource-card__spark green" id="res-ram-spark"></div>
+            </div>
+            <!-- GPU -->
+            <div class="resource-card">
+              <div class="resource-card__head">
+                <span class="resource-card__title">🎮 GPU</span>
+                <span class="resource-card__pct green" id="res-gpu-pct">--%</span>
+              </div>
+              <div class="resource-bar"><div class="resource-bar__fill green" id="res-gpu-bar" style="width:0%"></div></div>
+              <div class="resource-card__detail" id="res-gpu-detail">—</div>
+              <div class="resource-card__spark green" id="res-gpu-spark"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tab: Services ────────────────────────────── -->
+      <section class="tab-pane" id="tab-services" aria-label="Game server services">
+        <div class="content-area">
+
+          <div id="services-alert" role="alert" aria-live="polite"></div>
+
+          <div class="panel">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">🖥</span>
+              Game Server Services
+            </div>
+            <div class="overflow-auto">
+              <table class="tui-table" id="services-table" aria-label="Services table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Game</th>
+                    <th>Status</th>
+                    <th>PID</th>
+                    <th>CPU%</th>
+                    <th>RAM</th>
+                    <th>Uptime</th>
+                    <th>Port</th>
+                  </tr>
+                </thead>
+                <tbody id="services-tbody">
+                  <tr>
+                    <td colspan="8" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                      Loading services…
                     </td>
                   </tr>
                 </tbody>
@@ -227,8 +452,10 @@
           <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
           <tr><td><kbd>1</kbd></td><td>Pending Users tab</td></tr>
           <tr><td><kbd>2</kbd></td><td>All Users tab</td></tr>
-          <tr><td><kbd>3</kbd></td><td>Settings tab</td></tr>
-          <tr><td><kbd>r</kbd></td><td>Refresh user list</td></tr>
+          <tr><td><kbd>3</kbd></td><td>Resources tab</td></tr>
+          <tr><td><kbd>4</kbd></td><td>Services tab</td></tr>
+          <tr><td><kbd>5</kbd></td><td>Settings tab</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Refresh data</td></tr>
           <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
           <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
         </tbody>
@@ -254,9 +481,50 @@
     initAdmin();
   })();
 
+  // ── Sparkline helpers ────────────────────────────────────────────────────────
+  const SPARK_BLOCKS = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+  const SPARK_LEN = 16;   // number of data points in each sparkline
+
+  // Rolling history buffers
+  const history = { cpu: [], ram: [], gpu: [] };
+
+  function pushHistory(key, value) {
+    history[key].push(value);
+    if (history[key].length > SPARK_LEN) history[key].shift();
+  }
+
+  function sparkline(arr) {
+    if (arr.length === 0) return '';
+    return arr.map((v) => SPARK_BLOCKS[Math.min(8, Math.round((v / 100) * 8))]).join('');
+  }
+
+  function pctColor(pct) {
+    if (pct >= 80) return 'red';
+    if (pct >= 50) return 'yellow';
+    return 'green';
+  }
+
+  function setColorClass(el, pct) {
+    el.classList.remove('green', 'yellow', 'red');
+    el.classList.add(pctColor(pct));
+  }
+
+  function formatUptime(seconds) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
   // ── Init ────────────────────────────────────────────────────────────────────
   function initAdmin() {
     loadUsers();
+    pollSystem();           // first fetch immediately
+    loadServices();
+    setInterval(pollSystem, 2000);
+    setInterval(loadServices, 5000);
 
     // Sidebar navigation
     enableSidebarNav(document.getElementById("sidebar"));
@@ -288,8 +556,10 @@
       "?": () => helpDialog.classList.toggle("hidden"),
       "1": () => switchTab("pending"),
       "2": () => switchTab("all-users"),
-      "3": () => switchTab("settings"),
-      "r": () => loadUsers(),
+      "3": () => switchTab("resources"),
+      "4": () => switchTab("services"),
+      "5": () => switchTab("settings"),
+      "r": () => { loadUsers(); pollSystem(); loadServices(); },
       "q": () => logout(),
       "Escape": () => helpDialog.classList.add("hidden"),
     });
@@ -445,6 +715,102 @@
         }
       },
     });
+  }
+
+  // ── System resource polling ──────────────────────────────────────────────────
+
+  async function pollSystem() {
+    try {
+      const d = await apiFetch("/api/admin/system");
+
+      pushHistory('cpu', d.cpu.percent);
+      pushHistory('ram', d.ram.percent);
+      pushHistory('gpu', d.gpu.percent);
+
+      // ── Title-bar sparklines ──
+      updateTitlebarSpark('cpu', d.cpu.percent);
+      updateTitlebarSpark('ram', d.ram.percent);
+      updateTitlebarSpark('gpu', d.gpu.percent);
+
+      // ── Resources tab ──
+      updateResourceCard('cpu', d.cpu.percent, `${d.cpu.cores} cores`);
+      updateResourceCard('ram', d.ram.percent, `${d.ram.usedMb} / ${d.ram.totalMb} MB`);
+      updateResourceCard('gpu', d.gpu.percent, d.gpu.name);
+
+      document.getElementById('res-uptime').textContent = `Uptime: ${formatUptime(d.uptime)}`;
+    } catch { /* silent — will retry on next tick */ }
+  }
+
+  function updateTitlebarSpark(key, pct) {
+    const sparkEl = document.getElementById(`tb-${key}-spark`);
+    const valEl   = document.getElementById(`tb-${key}-val`);
+    sparkEl.textContent = sparkline(history[key]);
+    valEl.textContent = `${pct}%`;
+    setColorClass(sparkEl, pct);
+  }
+
+  function updateResourceCard(key, pct, detail) {
+    const pctEl   = document.getElementById(`res-${key}-pct`);
+    const barEl   = document.getElementById(`res-${key}-bar`);
+    const detEl   = document.getElementById(`res-${key}-detail`);
+    const sparkEl = document.getElementById(`res-${key}-spark`);
+
+    pctEl.textContent = `${pct}%`;
+    setColorClass(pctEl, pct);
+
+    barEl.style.width = `${pct}%`;
+    barEl.classList.remove('green', 'yellow', 'red');
+    barEl.classList.add(pctColor(pct));
+
+    detEl.textContent = detail;
+
+    sparkEl.textContent = sparkline(history[key]);
+    setColorClass(sparkEl, pct);
+  }
+
+  // ── Services ────────────────────────────────────────────────────────────────
+
+  async function loadServices() {
+    try {
+      const services = await apiFetch("/api/admin/services");
+      renderServices(services);
+      const running = services.filter((s) => s.status === "running").length;
+      document.getElementById("services-count").textContent = running;
+    } catch (err) {
+      showAlert(document.getElementById("services-alert"), err.message, "error");
+    }
+  }
+
+  function renderServices(services) {
+    const tbody = document.getElementById("services-tbody");
+
+    if (services.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+            No services configured
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = services.map((s) => `
+      <tr>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td>${escapeHtml(s.game)}</td>
+        <td>
+          <span class="svc-status">
+            <span class="svc-dot ${s.status}"></span>
+            ${escapeHtml(s.status)}
+          </span>
+        </td>
+        <td class="text-muted">${s.pid ?? '—'}</td>
+        <td>${s.status === 'stopped' ? '—' : s.cpuPercent + '%'}</td>
+        <td>${s.status === 'stopped' ? '—' : s.ramMb + ' MB'}</td>
+        <td class="text-muted">${s.uptimeSec > 0 ? formatUptime(s.uptimeSec) : '—'}</td>
+        <td>${s.port}</td>
+      </tr>
+    `).join("");
   }
 
   // ── Change password ─────────────────────────────────────────────────────────
