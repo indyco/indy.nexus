@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — indy.nexus</title>
+  <link rel="stylesheet" href="/css/tui.css">
+</head>
+<body>
+
+<a href="#main-content" class="skip-nav">Skip to content</a>
+
+<div class="shell">
+
+  <!-- Title Bar -->
+  <header class="titlebar" role="banner">
+    <a href="/" class="titlebar__logo" style="text-decoration:none">indy<span>.</span>nexus</a>
+    <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
+      <a href="/" class="titlebar__nav-item focus-ring" tabindex="0">Home</a>
+      <a href="/login.html" class="titlebar__nav-item active focus-ring" tabindex="0">Login</a>
+      <a href="/register.html" class="titlebar__nav-item focus-ring" tabindex="0">Register</a>
+    </nav>
+    <div class="titlebar__spacer"></div>
+    <div class="titlebar__status">
+      <div class="dot"></div>
+      <span>Online</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main auth-wrap" id="main-content">
+    <div class="auth-card" role="main" aria-label="Login form">
+
+      <div class="auth-card__header">
+        <span class="auth-card__icon" aria-hidden="true">▶</span>
+        <h1 class="auth-card__title">Login</h1>
+      </div>
+
+      <div class="auth-card__body">
+
+        <!-- Alert area -->
+        <div id="alert-area" role="alert" aria-live="polite"></div>
+
+        <form id="login-form" novalidate autocomplete="on">
+          <div class="flex-col gap-md">
+
+            <div class="field">
+              <label for="username">
+                Username <span class="req" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                class="input"
+                autocomplete="username"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                required
+                aria-required="true"
+                placeholder="your_username"
+              >
+            </div>
+
+            <div class="field">
+              <label for="password">
+                Password <span class="req" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="input"
+                autocomplete="current-password"
+                required
+                aria-required="true"
+                placeholder="••••••••"
+              >
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--full" id="submit-btn">
+              <span class="btn-text">▶ Login</span>
+            </button>
+
+          </div>
+        </form>
+
+        <!-- Keyboard hints -->
+        <div class="help-row" role="note">
+          <span><kbd>Tab</kbd> Next field</span>
+          <span><kbd>Enter</kbd> Submit</span>
+          <span><kbd>Esc</kbd> Cancel</span>
+        </div>
+
+      </div>
+
+      <div class="auth-card__footer">
+        Don't have an account?
+        <a href="/register.html" class="focus-ring">Request access</a>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" role="contentinfo">
+    <div class="statusbar__section">
+      <span class="tag blue">indy.nexus</span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">Login</div>
+    <div class="statusbar__spacer"></div>
+    <div class="statusbar__section">
+      <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
+    </div>
+  </footer>
+
+</div><!-- .shell -->
+
+<script src="/js/tui.js"></script>
+<script>
+  "use strict";
+
+  // Redirect if already logged in
+  (async () => {
+    await redirectIfLoggedIn("/dashboard.html");
+  })();
+
+  const form = document.getElementById("login-form");
+  const submitBtn = document.getElementById("submit-btn");
+  const alertArea = document.getElementById("alert-area");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert(alertArea);
+
+    const username = form.username.value.trim();
+    const password = form.password.value;
+
+    if (!username || !password) {
+      showAlert(alertArea, "Please enter your username and password.", "error");
+      return;
+    }
+
+    setButtonLoading(submitBtn, true);
+
+    try {
+      const data = await apiFetch("/api/login", {
+        method: "POST",
+        body: { username, password },
+      });
+
+      showAlert(alertArea, data.message || "Login successful!", "success");
+
+      // Redirect based on role
+      setTimeout(() => {
+        window.location.href = data.role === "admin" ? "/admin.html" : "/dashboard.html";
+      }, 400);
+
+    } catch (err) {
+      showAlert(alertArea, err.message, "error");
+      form.password.value = "";
+      form.username.focus();
+    } finally {
+      setButtonLoading(submitBtn, false);
+    }
+  });
+
+  // Keyboard shortcuts
+  registerGlobalShortcuts({
+    Escape: () => { window.location.href = "/"; },
+  });
+</script>
+
+</body>
+</html>
