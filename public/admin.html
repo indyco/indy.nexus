@@ -441,7 +441,6 @@
               </div>
               <div class="resource-bar"><div class="resource-bar__fill green" id="res-cpu-bar" style="width:0%"></div></div>
               <div class="resource-card__detail" id="res-cpu-detail">— cores</div>
-              <div class="resource-card__spark green" id="res-cpu-spark"></div>
             </div>
             <!-- RAM -->
             <div class="resource-card">
@@ -451,7 +450,6 @@
               </div>
               <div class="resource-bar"><div class="resource-bar__fill green" id="res-ram-bar" style="width:0%"></div></div>
               <div class="resource-card__detail" id="res-ram-detail">— / — MB</div>
-              <div class="resource-card__spark green" id="res-ram-spark"></div>
             </div>
             <!-- GPU -->
             <div class="resource-card">
@@ -461,7 +459,6 @@
               </div>
               <div class="resource-bar"><div class="resource-bar__fill green" id="res-gpu-bar" style="width:0%"></div></div>
               <div class="resource-card__detail" id="res-gpu-detail">—</div>
-              <div class="resource-card__spark green" id="res-gpu-spark"></div>
             </div>
           </div>
 
@@ -952,10 +949,9 @@
   }
 
   function updateResourceCard(key, pct, detail) {
-    const pctEl   = document.getElementById(`res-${key}-pct`);
-    const barEl   = document.getElementById(`res-${key}-bar`);
-    const detEl   = document.getElementById(`res-${key}-detail`);
-    const sparkEl = document.getElementById(`res-${key}-spark`);
+    const pctEl = document.getElementById(`res-${key}-pct`);
+    const barEl = document.getElementById(`res-${key}-bar`);
+    const detEl = document.getElementById(`res-${key}-detail`);
 
     pctEl.textContent = `${pct}%`;
     setColorClass(pctEl, pct);
@@ -965,9 +961,6 @@
     barEl.classList.add(pctColor(pct));
 
     detEl.textContent = detail;
-
-    sparkEl.textContent = sparkline(history[key]);
-    setColorClass(sparkEl, pct);
   }
 
   // ── Services ────────────────────────────────────────────────────────────────
