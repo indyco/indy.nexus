@@ -117,36 +117,45 @@
     const el = document.getElementById('ascii-logo');
     if (!el) return;
 
-    let lineIdx = 0;
-    let charIdx = 0;
     const charsPerTick = 4;   // characters revealed per frame
     const lineDelay = 60;     // ms pause between lines
     const charDelay = 12;     // ms between character groups
-    let buffer = '';
+    const repeatDelay = 10000; // ms before replaying
 
-    function tick() {
-      if (lineIdx >= lines.length) {
-        el.classList.add('ascii-logo--done');
-        return;
-      }
-      const line = lines[lineIdx];
-      const end = Math.min(charIdx + charsPerTick, line.length);
-      buffer += line.slice(charIdx, end);
-      el.textContent = buffer + '█';   // trailing cursor block
-      charIdx = end;
+    function play() {
+      let lineIdx = 0;
+      let charIdx = 0;
+      let buffer = '';
+      el.textContent = '';
+      el.classList.remove('ascii-logo--done');
 
-      if (charIdx >= line.length) {
-        buffer += '\n';
-        lineIdx++;
-        charIdx = 0;
-        setTimeout(tick, lineDelay);
-      } else {
-        setTimeout(tick, charDelay);
+      function tick() {
+        if (lineIdx >= lines.length) {
+          el.textContent = buffer.replace(/\n$/, ''); // strip trailing cursor
+          el.classList.add('ascii-logo--done');
+          setTimeout(play, repeatDelay);
+          return;
+        }
+        const line = lines[lineIdx];
+        const end = Math.min(charIdx + charsPerTick, line.length);
+        buffer += line.slice(charIdx, end);
+        el.textContent = buffer + '█';   // trailing cursor block
+        charIdx = end;
+
+        if (charIdx >= line.length) {
+          buffer += '\n';
+          lineIdx++;
+          charIdx = 0;
+          setTimeout(tick, lineDelay);
+        } else {
+          setTimeout(tick, charDelay);
+        }
       }
+      tick();
     }
 
     // Start after a tiny delay so the page renders first
-    setTimeout(tick, 200);
+    setTimeout(play, 200);
   })();
 
   // If already logged in, go to dashboard
