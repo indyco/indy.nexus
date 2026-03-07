@@ -167,6 +167,13 @@
       pointer-events: none;
     }
 
+    /* ── Game icon in Service column ─────────────────────── */
+    .svc-game-icon {
+      font-size: 1.6rem;
+      vertical-align: middle;
+      margin-right: 0.25rem;
+    }
+
     /* ── Player count styling ─────────────────────────────── */
     .svc-players {
       font-variant-numeric: tabular-nums;
@@ -989,8 +996,8 @@
 
       return `
       <tr>
-        <td><strong>${escapeHtml(s.name)}</strong></td>
-        <td>${GAME_ICONS[s.game] || GAME_ICONS.default} ${escapeHtml(s.game)}</td>
+        <td><span class="svc-game-icon">${GAME_ICONS[s.game] || GAME_ICONS.default}</span> <strong>${escapeHtml(s.name)}</strong></td>
+        <td>${escapeHtml(s.game)}</td>
         <td>
           <span class="svc-status">
             <span class="svc-dot ${s.status}"></span>
