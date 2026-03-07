@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>indy.nexus — Game Server Hosting</title>
+  <link rel="stylesheet" href="/css/tui.css">
+</head>
+<body>
+
+<a href="#main-content" class="skip-nav">Skip to content</a>
+
+<div class="shell">
+
+  <!-- Title Bar -->
+  <header class="titlebar" role="banner">
+    <span class="titlebar__logo">indy<span>.</span>nexus</span>
+    <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
+      <a href="/" class="titlebar__nav-item active focus-ring" tabindex="0">
+        <span>Home</span>
+      </a>
+      <a href="/login.html" class="titlebar__nav-item focus-ring" tabindex="0">
+        <span>Login</span>
+        <span class="kbd">L</span>
+      </a>
+      <a href="/register.html" class="titlebar__nav-item focus-ring" tabindex="0">
+        <span>Register</span>
+        <span class="kbd">R</span>
+      </a>
+    </nav>
+    <div class="titlebar__spacer"></div>
+    <div class="titlebar__status">
+      <div class="dot"></div>
+      <span>Online</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main" id="main-content">
+    <section class="landing" aria-label="Welcome">
+
+      <!-- ASCII Art Logo -->
+      <pre class="ascii-logo" aria-label="indy.nexus logo" role="img">
+ ██╗███╗   ██╗██████╗ ██╗   ██╗   ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
+ ██║████╗  ██║██╔══██╗╚██╗ ██╔╝   ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
+ ██║██╔██╗ ██║██║  ██║ ╚████╔╝    ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
+ ██║██║╚██╗██║██║  ██║  ╚██╔╝     ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
+ ██║██║ ╚████║██████╔╝   ██║   ██╗██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
+ ╚═╝╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
+
+      <p class="landing__tagline">
+        Your personal <span>game server</span> hosting platform.
+        Fast, reliable, and fully under your control.
+      </p>
+
+      <div class="landing__actions" role="group" aria-label="Get started actions">
+        <a href="/login.html" class="btn btn--primary focus-ring" tabindex="0" id="btn-login">
+          ▶ Login
+        </a>
+        <a href="/register.html" class="btn btn--ghost focus-ring" tabindex="0" id="btn-register">
+          + Request Access
+        </a>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="features" role="list" aria-label="Platform features">
+        <article class="feature-card" role="listitem">
+          <div class="feature-card__icon">🎮</div>
+          <h3 class="feature-card__title">Game Servers</h3>
+          <p class="feature-card__desc">Host Minecraft, Valheim, CS2, and more from a single dashboard.</p>
+        </article>
+        <article class="feature-card" role="listitem">
+          <div class="feature-card__icon">🔒</div>
+          <h3 class="feature-card__title">Private Access</h3>
+          <p class="feature-card__desc">Invite-only registration with manual admin approval for full control.</p>
+        </article>
+        <article class="feature-card" role="listitem">
+          <div class="feature-card__icon">⌨</div>
+          <h3 class="feature-card__title">TUI Interface</h3>
+          <p class="feature-card__desc">Navigate with keyboard shortcuts or mouse. Fully keyboard-accessible.</p>
+        </article>
+        <article class="feature-card" role="listitem">
+          <div class="feature-card__icon">📊</div>
+          <h3 class="feature-card__title">Live Monitoring</h3>
+          <p class="feature-card__desc">Real-time server status, player counts, and console output.</p>
+        </article>
+      </div>
+
+      <!-- Keyboard hints -->
+      <div class="help-row" role="note" aria-label="Keyboard shortcuts">
+        <span><kbd>L</kbd> Login</span>
+        <span><kbd>R</kbd> Register</span>
+        <span><kbd>Tab</kbd> Navigate</span>
+        <span><kbd>Enter</kbd> Select</span>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" role="contentinfo">
+    <div class="statusbar__section">
+      <span class="tag blue">indy.nexus</span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">v1.0</div>
+    <div class="statusbar__spacer"></div>
+    <div class="statusbar__section">
+      <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">
+      <span class="tag green">●&nbsp;Online</span>
+    </div>
+  </footer>
+
+</div><!-- .shell -->
+
+<script src="/js/tui.js"></script>
+<script>
+  "use strict";
+
+  // If already logged in, go to dashboard
+  (async () => {
+    const me = await getMe();
+    if (me.authenticated) {
+      const dest = me.role === "admin" ? "/admin.html" : "/dashboard.html";
+      window.location.href = dest;
+    }
+  })();
+
+  // Global keyboard shortcuts
+  registerGlobalShortcuts({
+    l: () => { window.location.href = "/login.html"; },
+    L: () => { window.location.href = "/login.html"; },
+    r: () => { window.location.href = "/register.html"; },
+    R: () => { window.location.href = "/register.html"; },
+  });
+
+  // Nav keyboard accessibility
+  enableListNav(document.querySelector(".titlebar__nav"), ".titlebar__nav-item");
+  enableListNav(document.querySelector(".landing__actions"), ".btn");
+</script>
+
+</body>
+</html>

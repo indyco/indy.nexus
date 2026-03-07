@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — indy.nexus</title>
+  <link rel="stylesheet" href="/css/tui.css">
+  <style>
+    .dashboard-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: flex; flex-direction: column; flex: 1; overflow: auto; }
+    .user-row td { vertical-align: middle; }
+    .actions-cell { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-nav">Skip to content</a>
+
+<div class="shell">
+
+  <!-- Title Bar -->
+  <header class="titlebar" role="banner">
+    <span class="titlebar__logo">indy<span>.</span>nexus</span>
+    <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
+      <span class="titlebar__nav-item active" tabindex="0">
+        <span>Admin Panel</span>
+      </span>
+    </nav>
+    <div class="titlebar__spacer"></div>
+    <div class="titlebar__status">
+      <div class="dot"></div>
+      <span id="nav-username">admin</span>
+      <span class="tag mauve" style="margin-left:.35rem">ADMIN</span>
+    </div>
+    <button
+      class="btn btn--ghost btn--sm"
+      id="logout-btn"
+      style="margin-left:0.5rem; height:1.75rem; padding:0 0.6rem; font-size:0.72rem;"
+      aria-label="Logout"
+    >
+      ⏻ Logout
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <div class="dashboard-layout" id="main-content">
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar" role="navigation" aria-label="Admin navigation">
+      <div class="sidebar__section-title">Users</div>
+
+      <div class="sidebar__item active focus-ring" tabindex="0" data-nav-item data-tab="pending" role="button" aria-pressed="true">
+        <span class="icon" aria-hidden="true">⏳</span>
+        <span>Pending</span>
+        <span class="count" id="pending-count" aria-label="pending users">0</span>
+      </div>
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="all-users" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">👥</span>
+        <span>All Users</span>
+        <span class="count" id="all-count" aria-label="all users">0</span>
+      </div>
+
+      <hr class="sidebar__divider">
+      <div class="sidebar__section-title">System</div>
+
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">⚙</span>
+        <span>Settings</span>
+      </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="flex-col" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+
+      <!-- ── Tab: Pending Users ─────────────────────────── -->
+      <section class="tab-pane active" id="tab-pending" aria-label="Pending user approvals">
+        <div class="content-area">
+
+          <div id="pending-alert" role="alert" aria-live="polite"></div>
+
+          <div class="panel">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">⏳</span>
+              Pending Approval
+            </div>
+            <div class="overflow-auto">
+              <table class="tui-table" id="pending-table" aria-label="Pending users table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Requested</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pending-tbody">
+                  <tr id="pending-empty">
+                    <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                      No pending requests
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tab: All Users ────────────────────────────── -->
+      <section class="tab-pane" id="tab-all-users" aria-label="All users">
+        <div class="content-area">
+
+          <div id="all-alert" role="alert" aria-live="polite"></div>
+
+          <div class="panel">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">👥</span>
+              All Users
+            </div>
+            <div class="overflow-auto">
+              <table class="tui-table" id="all-table" aria-label="All users table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Registered</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="all-tbody">
+                  <tr id="all-empty">
+                    <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                      No users found
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tab: Settings ─────────────────────────────── -->
+      <section class="tab-pane" id="tab-settings" aria-label="Admin settings">
+        <div class="content-area">
+
+          <div class="panel" style="max-width:440px">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">🔑</span>
+              Change Admin Password
+            </div>
+            <div class="panel__body flex-col gap-md">
+
+              <div id="settings-alert" role="alert" aria-live="polite"></div>
+
+              <form id="change-password-form" novalidate>
+                <div class="flex-col gap-md">
+                  <div class="field">
+                    <label for="current-password">Current Password <span class="req">*</span></label>
+                    <input type="password" id="current-password" class="input" required
+                      aria-required="true" autocomplete="current-password" placeholder="••••••••">
+                  </div>
+                  <div class="field">
+                    <label for="new-password">New Password <span class="req">*</span></label>
+                    <input type="password" id="new-password" class="input" required
+                      aria-required="true" autocomplete="new-password" placeholder="••••••••"
+                      aria-describedby="new-pass-hint">
+                    <span id="new-pass-hint" class="text-xs text-muted" style="margin-top:.2rem">At least 8 characters.</span>
+                  </div>
+                  <div class="field">
+                    <label for="confirm-new-password">Confirm New Password <span class="req">*</span></label>
+                    <input type="password" id="confirm-new-password" class="input" required
+                      aria-required="true" autocomplete="new-password" placeholder="••••••••">
+                  </div>
+                  <button type="submit" class="btn btn--primary" id="change-pass-btn">
+                    <span class="btn-text">🔑 Change Password</span>
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" role="contentinfo">
+    <div class="statusbar__section">
+      <span class="tag mauve">Admin</span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section" id="statusbar-info">—</div>
+    <div class="statusbar__spacer"></div>
+    <div class="statusbar__section">
+      <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">
+      <kbd>r</kbd> Refresh &nbsp; <kbd>?</kbd> Help
+    </div>
+  </footer>
+
+</div><!-- .shell -->
+
+<!-- Help dialog -->
+<div class="dialog-backdrop hidden" id="help-dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="dialog" style="max-width:400px">
+    <div class="dialog__header">
+      <span class="dialog__title">⌨ Keyboard Shortcuts</span>
+      <button class="dialog__close" id="help-close" aria-label="Close">✕</button>
+    </div>
+    <div class="dialog__body" style="font-size:0.82rem">
+      <table class="tui-table w-full">
+        <tbody>
+          <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Move down in list</td></tr>
+          <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
+          <tr><td><kbd>1</kbd></td><td>Pending Users tab</td></tr>
+          <tr><td><kbd>2</kbd></td><td>All Users tab</td></tr>
+          <tr><td><kbd>3</kbd></td><td>Settings tab</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Refresh user list</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
+          <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="dialog__footer">
+      <button class="btn btn--ghost btn--sm" id="help-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/tui.js"></script>
+<script>
+  "use strict";
+
+  let currentUser = null;
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  (async () => {
+    currentUser = await requireAdmin("/dashboard.html");
+    if (!currentUser) return;
+    document.getElementById("nav-username").textContent = currentUser.username;
+    initAdmin();
+  })();
+
+  // ── Init ────────────────────────────────────────────────────────────────────
+  function initAdmin() {
+    loadUsers();
+
+    // Sidebar navigation
+    enableSidebarNav(document.getElementById("sidebar"));
+    document.querySelectorAll("[data-tab]").forEach((item) => {
+      item.addEventListener("click", () => switchTab(item.dataset.tab));
+      item.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          switchTab(item.dataset.tab);
+        }
+      });
+    });
+
+    // Logout
+    document.getElementById("logout-btn").addEventListener("click", logout);
+
+    // Help dialog
+    const helpDialog = document.getElementById("help-dialog");
+    const closeHelp = () => helpDialog.classList.add("hidden");
+    document.getElementById("help-close").addEventListener("click", closeHelp);
+    document.getElementById("help-close-btn").addEventListener("click", closeHelp);
+    helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
+
+    // Change password form
+    document.getElementById("change-password-form").addEventListener("submit", onChangePassword);
+
+    // Global shortcuts
+    registerGlobalShortcuts({
+      "?": () => helpDialog.classList.toggle("hidden"),
+      "1": () => switchTab("pending"),
+      "2": () => switchTab("all-users"),
+      "3": () => switchTab("settings"),
+      "r": () => loadUsers(),
+      "q": () => logout(),
+      "Escape": () => helpDialog.classList.add("hidden"),
+    });
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll(".tab-pane").forEach((pane) => {
+      pane.classList.toggle("active", pane.id === `tab-${tabName}`);
+    });
+    document.querySelectorAll(".sidebar__item[data-tab]").forEach((item) => {
+      const active = item.dataset.tab === tabName;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  // ── Load users from API ─────────────────────────────────────────────────────
+  async function loadUsers() {
+    try {
+      const users = await apiFetch("/api/admin/users");
+      renderPending(users.filter((u) => u.status === "pending"));
+      renderAllUsers(users);
+      document.getElementById("pending-count").textContent = users.filter((u) => u.status === "pending").length;
+      document.getElementById("all-count").textContent = users.length;
+      document.getElementById("statusbar-info").textContent =
+        `${users.length} users · ${users.filter((u) => u.status === "pending").length} pending`;
+    } catch (err) {
+      showAlert(document.getElementById("pending-alert"), err.message, "error");
+    }
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function renderPending(users) {
+    const tbody = document.getElementById("pending-tbody");
+    const empty = document.getElementById("pending-empty");
+
+    if (users.length === 0) {
+      tbody.innerHTML = `
+        <tr id="pending-empty">
+          <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+            No pending requests — you're all caught up! ✔
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map((u) => `
+      <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — pending">
+        <td><strong>${escapeHtml(u.username)}</strong></td>
+        <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
+        <td><span class="badge badge--pending">⏳ Pending</span></td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')"
+              aria-label="Approve ${escapeHtml(u.username)}">✔ Approve</button>
+            <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')"
+              aria-label="Deny ${escapeHtml(u.username)}">✖ Deny</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    enableListNav(document.getElementById("pending-table"), "[data-nav-item]");
+  }
+
+  function renderAllUsers(users) {
+    const tbody = document.getElementById("all-tbody");
+
+    if (users.length === 0) {
+      tbody.innerHTML = `
+        <tr id="all-empty">
+          <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+            No users found
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = users.map((u) => {
+      const statusBadge = {
+        pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
+        approved: `<span class="badge badge--approved">✔ Approved</span>`,
+        denied:   `<span class="badge badge--denied">✖ Denied</span>`,
+      }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
+
+      const actions = u.status === "pending"
+        ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
+           <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
+        : u.status === "approved"
+        ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>`
+        : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+
+      return `
+        <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${u.status}">
+          <td><strong>${escapeHtml(u.username)}</strong></td>
+          <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
+          <td>${statusBadge}</td>
+          <td><div class="actions-cell">${actions}</div></td>
+        </tr>`;
+    }).join("");
+
+    enableListNav(document.getElementById("all-table"), "[data-nav-item]");
+  }
+
+  // ── User actions ────────────────────────────────────────────────────────────
+
+  async function approveUser(id) {
+    try {
+      const data = await apiFetch(`/api/admin/users/${id}/approve`, { method: "POST" });
+      showAlert(document.getElementById("pending-alert"), data.message, "success");
+      showAlert(document.getElementById("all-alert"), data.message, "success");
+      await loadUsers();
+    } catch (err) {
+      showAlert(document.getElementById("pending-alert"), err.message, "error");
+    }
+  }
+
+  async function denyUser(id) {
+    showConfirmDialog({
+      title: "Deny User",
+      message: "Are you sure you want to deny this user's access request?",
+      confirmText: "✖ Deny",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/users/${id}/deny`, { method: "POST" });
+          showAlert(document.getElementById("pending-alert"), data.message, "warning");
+          showAlert(document.getElementById("all-alert"), data.message, "warning");
+          await loadUsers();
+        } catch (err) {
+          showAlert(document.getElementById("pending-alert"), err.message, "error");
+        }
+      },
+    });
+  }
+
+  async function revokeUser(id) {
+    showConfirmDialog({
+      title: "Revoke Access",
+      message: "This will revert the user to pending status. They will need re-approval to log in.",
+      confirmText: "↩ Revoke",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/users/${id}/revoke`, { method: "POST" });
+          showAlert(document.getElementById("all-alert"), data.message, "warning");
+          await loadUsers();
+        } catch (err) {
+          showAlert(document.getElementById("all-alert"), err.message, "error");
+        }
+      },
+    });
+  }
+
+  // ── Change password ─────────────────────────────────────────────────────────
+
+  async function onChangePassword(e) {
+    e.preventDefault();
+    const alertEl = document.getElementById("settings-alert");
+    clearAlert(alertEl);
+
+    const current = document.getElementById("current-password").value;
+    const next    = document.getElementById("new-password").value;
+    const confirm = document.getElementById("confirm-new-password").value;
+    const btn     = document.getElementById("change-pass-btn");
+
+    if (!current || !next || !confirm) {
+      showAlert(alertEl, "All fields are required.", "error");
+      return;
+    }
+    if (next !== confirm) {
+      showAlert(alertEl, "New passwords do not match.", "error");
+      return;
+    }
+    if (next.length < 8) {
+      showAlert(alertEl, "New password must be at least 8 characters.", "error");
+      return;
+    }
+
+    setButtonLoading(btn, true);
+    try {
+      const data = await apiFetch("/api/admin/change-password", {
+        method: "POST",
+        body: { currentPassword: current, newPassword: next },
+      });
+      showAlert(alertEl, data.message, "success");
+      e.target.reset();
+    } catch (err) {
+      showAlert(alertEl, err.message, "error");
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  }
+</script>
+
+</body>
+</html>

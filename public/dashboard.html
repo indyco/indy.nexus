@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — indy.nexus</title>
+  <link rel="stylesheet" href="/css/tui.css">
+  <style>
+    .dashboard-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: flex; flex-direction: column; flex: 1; overflow: auto; }
+  </style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-nav">Skip to content</a>
+
+<div class="shell">
+
+  <!-- Title Bar -->
+  <header class="titlebar" role="banner">
+    <span class="titlebar__logo">indy<span>.</span>nexus</span>
+    <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
+      <span class="titlebar__nav-item active" tabindex="0">Dashboard</span>
+    </nav>
+    <div class="titlebar__spacer"></div>
+    <div class="titlebar__status">
+      <div class="dot"></div>
+      <span id="nav-username">…</span>
+    </div>
+    <button
+      class="btn btn--ghost btn--sm"
+      id="logout-btn"
+      style="margin-left:0.5rem; height:1.75rem; padding:0 0.6rem; font-size:0.72rem;"
+      aria-label="Logout"
+    >
+      ⏻ Logout
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <div class="dashboard-layout" id="main-content">
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar" role="navigation" aria-label="Sidebar navigation">
+      <div class="sidebar__section-title">Game Servers</div>
+
+      <div class="sidebar__item active focus-ring" tabindex="0" data-nav-item data-tab="servers" role="button" aria-pressed="true">
+        <span class="icon" aria-hidden="true">▣</span>
+        <span>All Servers</span>
+        <span class="count" id="sidebar-server-count" aria-label="server count">0</span>
+      </div>
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="logs" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">≡</span>
+        <span>Console</span>
+      </div>
+
+      <hr class="sidebar__divider">
+      <div class="sidebar__section-title">Account</div>
+
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="account" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">◉</span>
+        <span>My Account</span>
+      </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="flex-col" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+
+      <!-- ── Tab: Servers ──────────────────────────────── -->
+      <section class="tab-pane active" id="tab-servers" aria-label="Game servers">
+
+        <div class="tab-strip" role="tablist" id="server-tabs" aria-label="Server filter tabs">
+          <button class="tab-strip__tab active focus-ring" role="tab" aria-selected="true"  data-filter="all"     tabindex="0">All</button>
+          <button class="tab-strip__tab focus-ring"        role="tab" aria-selected="false" data-filter="online"  tabindex="-1">Online</button>
+          <button class="tab-strip__tab focus-ring"        role="tab" aria-selected="false" data-filter="offline" tabindex="-1">Offline</button>
+        </div>
+
+        <div class="content-area" id="server-list-area" role="list" aria-label="Game server list">
+          <!-- Populated by JS -->
+        </div>
+
+      </section>
+
+      <!-- ── Tab: Console ──────────────────────────────── -->
+      <section class="tab-pane" id="tab-logs" aria-label="Console output">
+        <div class="content-area">
+          <div class="panel">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">≡</span>
+              Console Output
+            </div>
+            <div class="panel__body">
+              <div class="log-output" id="console-log" aria-live="polite" aria-label="Server console">
+              </div>
+              <p class="text-xs text-muted mt-sm">
+                Select a server and click its console button to view output here.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Tab: Account ──────────────────────────────── -->
+      <section class="tab-pane" id="tab-account" aria-label="My account">
+        <div class="content-area">
+          <div class="panel" style="max-width:480px">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">◉</span>
+              Account Details
+            </div>
+            <div class="panel__body flex-col gap-md">
+              <div>
+                <div class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Username</div>
+                <div id="account-username" style="font-weight:600">—</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Role</div>
+                <div id="account-role" style="font-weight:600">—</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Status</div>
+                <div id="account-status">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" role="contentinfo">
+    <div class="statusbar__section">
+      <span class="tag blue">indy.nexus</span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">Dashboard</div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">
+      <span id="statusbar-server-status">0 servers</span>
+    </div>
+    <div class="statusbar__spacer"></div>
+    <div class="statusbar__section">
+      <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">
+      <kbd>?</kbd> Help
+    </div>
+  </footer>
+
+</div><!-- .shell -->
+
+<!-- Help dialog (hidden) -->
+<div class="dialog-backdrop hidden" id="help-dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="dialog" style="max-width:420px">
+    <div class="dialog__header">
+      <span class="dialog__title">⌨ Keyboard Shortcuts</span>
+      <button class="dialog__close" id="help-close" aria-label="Close">✕</button>
+    </div>
+    <div class="dialog__body" style="font-size:0.82rem">
+      <table class="tui-table w-full">
+        <tbody>
+          <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Move down in list</td></tr>
+          <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
+          <tr><td><kbd>1</kbd></td><td>Go to Servers tab</td></tr>
+          <tr><td><kbd>2</kbd></td><td>Go to Console tab</td></tr>
+          <tr><td><kbd>3</kbd></td><td>Go to Account tab</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close dialogs</td></tr>
+          <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="dialog__footer">
+      <button class="btn btn--ghost btn--sm" id="help-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/tui.js"></script>
+<script>
+  "use strict";
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  let currentUser = null;
+
+  (async () => {
+    currentUser = await requireAuth("/login.html");
+    if (!currentUser) return;
+
+    // Redirect admin to admin panel
+    if (currentUser.role === "admin") {
+      window.location.href = "/admin.html";
+      return;
+    }
+
+    initDashboard();
+  })();
+
+  // ── Sample server data (replace with real API when available) ───────────────
+  const SAMPLE_SERVERS = [
+    { id: "mc-1",  name: "Minecraft Survival",  game: "Minecraft",  status: "online",  players: "4/20",  port: 25565 },
+    { id: "val-1", name: "Valheim Dedicated",    game: "Valheim",    status: "online",  players: "2/10",  port: 2456  },
+    { id: "cs-1",  name: "CS2 Competitive",      game: "CS2",        status: "offline", players: "0/16",  port: 27015 },
+    { id: "mc-2",  name: "Minecraft Creative",   game: "Minecraft",  status: "offline", players: "0/20",  port: 25566 },
+    { id: "ark-1", name: "ARK: Survival",        game: "ARK",        status: "starting", players: "0/30", port: 7777  },
+  ];
+
+  const GAME_ICONS = {
+    Minecraft: "⛏",
+    Valheim:   "⚔",
+    CS2:       "🎯",
+    ARK:       "🦕",
+    default:   "🖥",
+  };
+
+  let currentFilter = "all";
+  let serverData = [...SAMPLE_SERVERS];
+
+  function initDashboard() {
+    document.getElementById("nav-username").textContent = currentUser.username;
+    document.getElementById("account-username").textContent = currentUser.username;
+    document.getElementById("account-role").textContent = currentUser.role;
+    document.getElementById("account-status").innerHTML =
+      `<span class="badge badge--approved">● Approved</span>`;
+
+    renderServers();
+    updateStatusBar();
+
+    // Sidebar navigation
+    enableSidebarNav(document.getElementById("sidebar"));
+    document.querySelectorAll("[data-tab]").forEach((item) => {
+      item.addEventListener("click", () => switchTab(item.dataset.tab));
+      item.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          switchTab(item.dataset.tab);
+        }
+      });
+    });
+
+    // Tab strip
+    const tabStrip = document.getElementById("server-tabs");
+    enableTabNav(tabStrip, (id) => {});
+    tabStrip.querySelectorAll(".tab-strip__tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        currentFilter = tab.dataset.filter;
+        tabStrip.querySelectorAll(".tab-strip__tab").forEach((t) => {
+          t.classList.toggle("active", t === tab);
+          t.setAttribute("aria-selected", t === tab ? "true" : "false");
+          t.tabIndex = t === tab ? 0 : -1;
+        });
+        renderServers();
+      });
+    });
+
+    // Logout
+    document.getElementById("logout-btn").addEventListener("click", logout);
+
+    // Help dialog
+    const helpDialog = document.getElementById("help-dialog");
+    const closeHelp = () => helpDialog.classList.add("hidden");
+    document.getElementById("help-close").addEventListener("click", closeHelp);
+    document.getElementById("help-close-btn").addEventListener("click", closeHelp);
+    helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
+
+    // Server list keyboard nav
+    enableListNav(document.getElementById("server-list-area"), ".server-card");
+
+    // Global shortcuts
+    registerGlobalShortcuts({
+      "?": () => helpDialog.classList.toggle("hidden"),
+      "1": () => switchTab("servers"),
+      "2": () => switchTab("logs"),
+      "3": () => switchTab("account"),
+      "q": () => logout(),
+      "Escape": () => helpDialog.classList.add("hidden"),
+    });
+  }
+
+  function switchTab(tabName) {
+    // Panes
+    document.querySelectorAll(".tab-pane").forEach((pane) => {
+      pane.classList.toggle("active", pane.id === `tab-${tabName}`);
+    });
+    // Sidebar items
+    document.querySelectorAll(".sidebar__item[data-tab]").forEach((item) => {
+      const active = item.dataset.tab === tabName;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  function renderServers() {
+    const area = document.getElementById("server-list-area");
+    const filtered = serverData.filter((s) => {
+      if (currentFilter === "all") return true;
+      return s.status === currentFilter;
+    });
+
+    if (filtered.length === 0) {
+      area.innerHTML = `
+        <div class="text-muted text-sm" style="padding:2rem; text-align:center;">
+          No servers match this filter.
+        </div>`;
+      return;
+    }
+
+    area.innerHTML = filtered.map((server) => `
+      <div
+        class="server-card focus-ring"
+        tabindex="0"
+        data-nav-item
+        data-id="${escapeHtml(server.id)}"
+        role="listitem"
+        aria-label="${escapeHtml(server.name)} — ${server.status}"
+      >
+        <div class="server-card__icon" aria-hidden="true">
+          ${GAME_ICONS[server.game] || GAME_ICONS.default}
+        </div>
+        <div class="server-card__info">
+          <div class="server-card__name">${escapeHtml(server.name)}</div>
+          <div class="server-card__meta">
+            ${escapeHtml(server.game)} &nbsp;·&nbsp; Port ${server.port} &nbsp;·&nbsp;
+            ${server.players} players
+          </div>
+        </div>
+        <div class="server-card__actions">
+          <span class="badge badge--${server.status}">
+            ${server.status === "online" ? "● " : server.status === "starting" ? "◌ " : "○ "}${server.status}
+          </span>
+          ${server.status === "online" ? `
+            <button
+              class="btn btn--danger btn--sm"
+              onclick="toggleServer('${server.id}', 'stop')"
+              aria-label="Stop ${escapeHtml(server.name)}"
+            >Stop</button>
+          ` : server.status === "offline" ? `
+            <button
+              class="btn btn--success btn--sm"
+              onclick="toggleServer('${server.id}', 'start')"
+              aria-label="Start ${escapeHtml(server.name)}"
+            >Start</button>
+          ` : `
+            <button class="btn btn--ghost btn--sm" disabled>Starting…</button>
+          `}
+          <button
+            class="btn btn--ghost btn--sm"
+            onclick="openConsole('${server.id}')"
+            aria-label="Open console for ${escapeHtml(server.name)}"
+          >Console</button>
+        </div>
+      </div>
+    `).join("");
+
+    document.getElementById("sidebar-server-count").textContent = serverData.length;
+  }
+
+  function updateStatusBar() {
+    const online = serverData.filter((s) => s.status === "online").length;
+    document.getElementById("statusbar-server-status").textContent =
+      `${online}/${serverData.length} servers online`;
+  }
+
+  function toggleServer(id, action) {
+    const server = serverData.find((s) => s.id === id);
+    if (!server) return;
+
+    const newStatus = action === "start" ? "starting" : "offline";
+
+    showConfirmDialog({
+      title: action === "start" ? "Start Server" : "Stop Server",
+      message: `${action === "start" ? "Start" : "Stop"} "${server.name}"?`,
+      confirmText: action === "start" ? "▶ Start" : "■ Stop",
+      onConfirm: () => {
+        server.status = newStatus;
+        renderServers();
+        updateStatusBar();
+        const logEl = document.getElementById("console-log");
+        appendLog(logEl, "info", `[${server.name}] ${action === "start" ? "Starting server…" : "Stopping server…"}`);
+
+        if (action === "start") {
+          setTimeout(() => {
+            server.status = "online";
+            renderServers();
+            updateStatusBar();
+            appendLog(logEl, "ok", `[${server.name}] Server is now online.`);
+          }, 2000);
+        }
+      },
+    });
+  }
+
+  function openConsole(id) {
+    const server = serverData.find((s) => s.id === id);
+    if (!server) return;
+    switchTab("logs");
+    const logEl = document.getElementById("console-log");
+    appendLog(logEl, "info", `=== Console: ${server.name} ===`);
+    appendLog(logEl, "info", `Status: ${server.status}`);
+    appendLog(logEl, "info", `Port: ${server.port}`);
+  }
+</script>
+
+</body>
+</html>
