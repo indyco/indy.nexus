@@ -674,6 +674,14 @@
     return `${m}m`;
   }
 
+  const GAME_ICONS = {
+    Minecraft: "⛏",
+    Valheim:   "⚔",
+    CS2:       "🎯",
+    ARK:       "🦕",
+    default:   "🖥",
+  };
+
   // ── Init ────────────────────────────────────────────────────────────────────
   function initAdmin() {
     loadUsers();
@@ -978,7 +986,7 @@
       return `
       <tr>
         <td><strong>${escapeHtml(s.name)}</strong></td>
-        <td>${escapeHtml(s.game)}</td>
+        <td>${GAME_ICONS[s.game] || GAME_ICONS.default} ${escapeHtml(s.game)}</td>
         <td>
           <span class="svc-status">
             <span class="svc-dot ${s.status}"></span>
@@ -1086,7 +1094,7 @@
       </div>
       <div class="info-sidebar__body">
         <dl class="info-grid">
-          <dt>Game</dt>      <dd>${escapeHtml(s.game)}</dd>
+          <dt>Game</dt>      <dd>${GAME_ICONS[s.game] || GAME_ICONS.default} ${escapeHtml(s.game)}</dd>
           <dt>Status</dt>    <dd>${statusLabel}</dd>
           <dt>Players</dt>   <dd>${s.status === 'stopped' ? '—' : s.players + ' / ' + s.maxPlayers}</dd>
           <dt>Port</dt>      <dd>${s.port}</dd>
