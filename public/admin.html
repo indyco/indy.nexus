@@ -120,6 +120,73 @@
     .svc-dot.running  { background: var(--green); }
     .svc-dot.stopped  { background: var(--overlay0); }
     .svc-dot.starting { background: var(--blue); animation: pulse 2s ease-in-out infinite; }
+
+    /* ── Service action icon buttons ──────────────────────── */
+    .svc-actions {
+      display: flex;
+      gap: 0.3rem;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .svc-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.65rem;
+      height: 1.65rem;
+      border: var(--border-width) solid var(--surface2);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--subtext0);
+      cursor: pointer;
+      font-size: 0.82rem;
+      line-height: 1;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      padding: 0;
+      position: relative;
+    }
+    .svc-icon-btn:hover {
+      background: var(--surface0);
+      color: var(--text);
+      border-color: var(--overlay0);
+    }
+    .svc-icon-btn:focus-visible {
+      box-shadow: 0 0 0 2px var(--border-focus);
+    }
+    .svc-icon-btn.start:hover  { color: var(--green); border-color: var(--green); }
+    .svc-icon-btn.stop:hover   { color: var(--red); border-color: var(--red); }
+    .svc-icon-btn.restart:hover { color: var(--yellow); border-color: var(--yellow); }
+    .svc-icon-btn.info:hover   { color: var(--blue); border-color: var(--blue); }
+    .svc-icon-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* ── Player count styling ─────────────────────────────── */
+    .svc-players {
+      font-variant-numeric: tabular-nums;
+      font-size: 0.78rem;
+    }
+    .svc-players .current { font-weight: 600; }
+    .svc-players .max { color: var(--overlay0); }
+
+    /* ── More Info dialog details ─────────────────────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.35rem 1rem;
+      font-size: 0.82rem;
+    }
+    .info-grid dt {
+      color: var(--overlay1);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      padding-top: 0.15rem;
+    }
+    .info-grid dd { color: var(--text); }
   </style>
 </head>
 <body>
@@ -343,16 +410,18 @@
                     <th>Service</th>
                     <th>Game</th>
                     <th>Status</th>
+                    <th>Players</th>
                     <th>PID</th>
                     <th>CPU%</th>
                     <th>RAM</th>
                     <th>Uptime</th>
                     <th>Port</th>
+                    <th style="text-align:right">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="services-tbody">
                   <tr>
-                    <td colspan="8" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                    <td colspan="10" style="text-align:center; color:var(--overlay0); padding:1.5rem">
                       Loading services…
                     </td>
                   </tr>
@@ -789,14 +858,18 @@
     if (services.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+          <td colspan="10" style="text-align:center; color:var(--overlay0); padding:1.5rem">
             No services configured
           </td>
         </tr>`;
       return;
     }
 
-    tbody.innerHTML = services.map((s) => `
+    tbody.innerHTML = services.map((s) => {
+      const isRunning = s.status === 'running';
+      const isStopped = s.status === 'stopped';
+
+      return `
       <tr>
         <td><strong>${escapeHtml(s.name)}</strong></td>
         <td>${escapeHtml(s.game)}</td>
@@ -806,13 +879,130 @@
             ${escapeHtml(s.status)}
           </span>
         </td>
+        <td>
+          <span class="svc-players">
+            ${isStopped
+              ? '<span class="text-muted">—</span>'
+              : `<span class="current">${s.players}</span><span class="max">/${s.maxPlayers}</span>`}
+          </span>
+        </td>
         <td class="text-muted">${s.pid ?? '—'}</td>
-        <td>${s.status === 'stopped' ? '—' : s.cpuPercent + '%'}</td>
-        <td>${s.status === 'stopped' ? '—' : s.ramMb + ' MB'}</td>
+        <td>${isStopped ? '—' : s.cpuPercent + '%'}</td>
+        <td>${isStopped ? '—' : s.ramMb + ' MB'}</td>
         <td class="text-muted">${s.uptimeSec > 0 ? formatUptime(s.uptimeSec) : '—'}</td>
         <td>${s.port}</td>
-      </tr>
-    `).join("");
+        <td>
+          <div class="svc-actions">
+            <button class="svc-icon-btn start" data-tooltip="Start"
+              onclick="startServer('${s.id}')" aria-label="Start ${escapeHtml(s.name)}"
+              ${isRunning ? 'disabled' : ''}>▶</button>
+            <button class="svc-icon-btn stop" data-tooltip="Stop"
+              onclick="stopServer('${s.id}')" aria-label="Stop ${escapeHtml(s.name)}"
+              ${isStopped ? 'disabled' : ''}>■</button>
+            <button class="svc-icon-btn restart" data-tooltip="Restart"
+              onclick="restartServer('${s.id}')" aria-label="Restart ${escapeHtml(s.name)}">⟳</button>
+            <button class="svc-icon-btn info" data-tooltip="More Info"
+              onclick='showServerInfo(${JSON.stringify(s).replace(/'/g, "&#39;")})' aria-label="Info ${escapeHtml(s.name)}">ℹ</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── Server action handlers ──────────────────────────────────────────────────
+
+  async function startServer(id) {
+    try {
+      const data = await apiFetch(`/api/admin/services/${id}/start`, { method: "POST" });
+      showAlert(document.getElementById("services-alert"), data.message, "success");
+      await loadServices();
+    } catch (err) {
+      showAlert(document.getElementById("services-alert"), err.message, "error");
+    }
+  }
+
+  async function stopServer(id) {
+    showConfirmDialog({
+      title: "Stop Server",
+      message: "Are you sure you want to stop this game server? Active players will be disconnected.",
+      confirmText: "■ Stop",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/services/${id}/stop`, { method: "POST" });
+          showAlert(document.getElementById("services-alert"), data.message, "warning");
+          await loadServices();
+        } catch (err) {
+          showAlert(document.getElementById("services-alert"), err.message, "error");
+        }
+      },
+    });
+  }
+
+  async function restartServer(id) {
+    showConfirmDialog({
+      title: "Restart Server",
+      message: "This will restart the game server. Players may experience a brief disconnection.",
+      confirmText: "⟳ Restart",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/services/${id}/restart`, { method: "POST" });
+          showAlert(document.getElementById("services-alert"), data.message, "success");
+          await loadServices();
+        } catch (err) {
+          showAlert(document.getElementById("services-alert"), err.message, "error");
+        }
+      },
+    });
+  }
+
+  function showServerInfo(s) {
+    const existing = document.getElementById("server-info-backdrop");
+    if (existing) existing.remove();
+
+    const statusLabel = {
+      running:  `<span style="color:var(--green)">● running</span>`,
+      stopped:  `<span style="color:var(--overlay0)">● stopped</span>`,
+      starting: `<span style="color:var(--blue)">● starting</span>`,
+    }[s.status] || escapeHtml(s.status);
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "dialog-backdrop";
+    backdrop.id = "server-info-backdrop";
+    backdrop.setAttribute("role", "dialog");
+    backdrop.setAttribute("aria-modal", "true");
+    backdrop.setAttribute("aria-label", `${s.name} details`);
+
+    backdrop.innerHTML = `
+      <div class="dialog" style="max-width:420px">
+        <div class="dialog__header">
+          <span class="dialog__title">ℹ ${escapeHtml(s.name)}</span>
+          <button class="dialog__close" id="info-close" aria-label="Close">✕</button>
+        </div>
+        <div class="dialog__body">
+          <dl class="info-grid">
+            <dt>Game</dt>      <dd>${escapeHtml(s.game)}</dd>
+            <dt>Status</dt>    <dd>${statusLabel}</dd>
+            <dt>Players</dt>   <dd>${s.status === 'stopped' ? '—' : s.players + ' / ' + s.maxPlayers}</dd>
+            <dt>Port</dt>      <dd>${s.port}</dd>
+            <dt>PID</dt>       <dd>${s.pid ?? '—'}</dd>
+            <dt>CPU</dt>       <dd>${s.status === 'stopped' ? '—' : s.cpuPercent + '%'}</dd>
+            <dt>RAM</dt>       <dd>${s.status === 'stopped' ? '—' : s.ramMb + ' MB'}</dd>
+            <dt>Uptime</dt>    <dd>${s.uptimeSec > 0 ? formatUptime(s.uptimeSec) : '—'}</dd>
+          </dl>
+        </div>
+        <div class="dialog__footer">
+          <button class="btn btn--ghost btn--sm" id="info-close-btn">Close</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(backdrop);
+
+    const close = () => backdrop.remove();
+    backdrop.querySelector("#info-close").addEventListener("click", close);
+    backdrop.querySelector("#info-close-btn").addEventListener("click", close);
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+    backdrop.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    backdrop.querySelector("#info-close-btn").focus();
   }
 
   // ── Change password ─────────────────────────────────────────────────────────
