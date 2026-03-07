@@ -693,6 +693,10 @@
     loadServices();
     setInterval(pollSystem, 5000);
     setInterval(loadServices, 5000);
+    
+    // Restore previously selected tab, default to 'services'
+    const savedTab = localStorage.getItem("selectedTab") || "services";
+    switchTab(savedTab);
 
     // Sidebar navigation
     enableSidebarNav(document.getElementById("sidebar"));
