@@ -276,6 +276,19 @@ app.get("/api/admin/users", requireAdmin, (req, res) => {
   res.json(users);
 });
 
+// GET /api/admin/all-users — list ALL users including admins (admin only, for rename feature)
+app.get("/api/admin/all-users", requireAdmin, (req, res) => {
+  const users = loadUsers()
+    .map(({ id, username, role, status, createdAt }) => ({
+      id,
+      username,
+      role,
+      status,
+      createdAt,
+    }));
+  res.json(users);
+});
+
 // POST /api/admin/users/:id/approve
 app.post("/api/admin/users/:id/approve", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
   const users = loadUsers();
@@ -450,6 +463,48 @@ app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireC
   admin.passwordHash = bcrypt.hashSync(newPassword, 10);
   saveUsers(users);
   res.json({ message: "Password changed successfully" });
+});
+
+// POST /api/admin/rename-user
+app.post("/api/admin/rename-user", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+  const { userId, newUsername } = req.body;
+  
+  if (!userId || !newUsername) {
+    return res.status(400).json({ error: "User ID and new username are required" });
+  }
+  
+  // Validate username format
+  if (newUsername.length < 3 || newUsername.length > 32) {
+    return res.status(400).json({ error: "Username must be 3–32 characters" });
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+    return res.status(400).json({ error: "Username may only contain letters, numbers, _ and -" });
+  }
+  
+  const users = loadUsers();
+  
+  // Check if new username is already taken (case-insensitive)
+  const existingUser = users.find((u) => u.username.toLowerCase() === newUsername.toLowerCase() && u.id !== userId);
+  if (existingUser) {
+    return res.status(409).json({ error: "Username already taken" });
+  }
+  
+  // Find the user to rename
+  const userToRename = users.find((u) => u.id === userId);
+  if (!userToRename) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  
+  const oldUsername = userToRename.username;
+  userToRename.username = newUsername;
+  saveUsers(users);
+  
+  // Update session if admin renamed themselves
+  if (userId === req.session.userId) {
+    res.json({ message: `Username changed from "${oldUsername}" to "${newUsername}"`, selfRenamed: true });
+  } else {
+    res.json({ message: `User "${oldUsername}" renamed to "${newUsername}"` });
+  }
 });
 
 // ---------------------------------------------------------------------------
