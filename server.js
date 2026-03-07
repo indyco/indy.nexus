@@ -263,13 +263,13 @@ app.post("/api/logout", requireCsrfHeader, (req, res) => {
   });
 });
 
-// GET /api/admin/users — list all non-admin users (admin only)
+// GET /api/admin/users — list all users (admin only)
 app.get("/api/admin/users", requireAdmin, (req, res) => {
   const users = loadUsers()
-    .filter((u) => u.role !== "admin")
-    .map(({ id, username, status, createdAt }) => ({
+    .map(({ id, username, role, status, createdAt }) => ({
       id,
       username,
+      role,
       status,
       createdAt,
     }));

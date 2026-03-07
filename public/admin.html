@@ -171,7 +171,64 @@
     .svc-players .current { font-weight: 600; }
     .svc-players .max { color: var(--overlay0); }
 
-    /* ── More Info dialog details ─────────────────────────── */
+    /* ── Server Info slide-out sidebar ────────────────────── */
+    .info-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 320px;
+      max-width: 90vw;
+      background: var(--mantle);
+      border-left: var(--border-width) solid var(--surface2);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.35);
+      z-index: 80;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+      pointer-events: auto;
+    }
+    .info-sidebar.open {
+      transform: translateX(0);
+    }
+    .info-sidebar__header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-bottom: var(--border-width) solid var(--surface1);
+      background: var(--crust);
+      flex-shrink: 0;
+    }
+    .info-sidebar__title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .info-sidebar__close {
+      background: none;
+      border: none;
+      color: var(--overlay0);
+      cursor: pointer;
+      padding: 0.1rem 0.3rem;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+    }
+    .info-sidebar__close:hover { color: var(--text); background: var(--surface1); }
+    .info-sidebar__body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem 1rem;
+    }
     .info-grid {
       display: grid;
       grid-template-columns: auto 1fr;
@@ -747,21 +804,28 @@
     }
 
     tbody.innerHTML = users.map((u) => {
-      const statusBadge = {
-        pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
-        approved: `<span class="badge badge--approved">✔ Approved</span>`,
-        denied:   `<span class="badge badge--denied">✖ Denied</span>`,
-      }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
+      const isAdmin = u.role === "admin";
 
-      const actions = u.status === "pending"
-        ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
-           <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
-        : u.status === "approved"
-        ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>`
-        : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+      const statusBadge = isAdmin
+        ? `<span class="tag mauve" style="font-size:0.68rem; padding:0.1rem 0.45rem; border-radius:2px">ADMIN</span>`
+        : {
+            pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
+            approved: `<span class="badge badge--approved">✔ Approved</span>`,
+            denied:   `<span class="badge badge--denied">✖ Denied</span>`,
+          }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
+
+      let actions = '';
+      if (!isAdmin) {
+        actions = u.status === "pending"
+          ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
+             <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
+          : u.status === "approved"
+          ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>`
+          : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+      }
 
       return `
-        <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${u.status}">
+        <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${isAdmin ? 'admin' : u.status}">
           <td><strong>${escapeHtml(u.username)}</strong></td>
           <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
           <td>${statusBadge}</td>
@@ -998,8 +1062,16 @@
   }
 
   function showServerInfo(s) {
-    const existing = document.getElementById("server-info-backdrop");
-    if (existing) existing.remove();
+    // Reuse existing sidebar element or create one
+    let panel = document.getElementById("server-info-sidebar");
+    if (!panel) {
+      panel = document.createElement("aside");
+      panel.id = "server-info-sidebar";
+      panel.className = "info-sidebar";
+      panel.setAttribute("role", "complementary");
+      panel.setAttribute("aria-label", "Server details");
+      document.body.appendChild(panel);
+    }
 
     const statusLabel = {
       running:  `<span style="color:var(--green)">● running</span>`,
@@ -1007,44 +1079,36 @@
       starting: `<span style="color:var(--blue)">● starting</span>`,
     }[s.status] || escapeHtml(s.status);
 
-    const backdrop = document.createElement("div");
-    backdrop.className = "dialog-backdrop";
-    backdrop.id = "server-info-backdrop";
-    backdrop.setAttribute("role", "dialog");
-    backdrop.setAttribute("aria-modal", "true");
-    backdrop.setAttribute("aria-label", `${s.name} details`);
-
-    backdrop.innerHTML = `
-      <div class="dialog" style="max-width:420px">
-        <div class="dialog__header">
-          <span class="dialog__title">ℹ ${escapeHtml(s.name)}</span>
-          <button class="dialog__close" id="info-close" aria-label="Close">✕</button>
-        </div>
-        <div class="dialog__body">
-          <dl class="info-grid">
-            <dt>Game</dt>      <dd>${escapeHtml(s.game)}</dd>
-            <dt>Status</dt>    <dd>${statusLabel}</dd>
-            <dt>Players</dt>   <dd>${s.status === 'stopped' ? '—' : s.players + ' / ' + s.maxPlayers}</dd>
-            <dt>Port</dt>      <dd>${s.port}</dd>
-            <dt>PID</dt>       <dd>${s.pid ?? '—'}</dd>
-            <dt>CPU</dt>       <dd>${s.status === 'stopped' ? '—' : s.cpuPercent + '%'}</dd>
-            <dt>RAM</dt>       <dd>${s.status === 'stopped' ? '—' : s.ramMb + ' MB'}</dd>
-            <dt>Uptime</dt>    <dd>${s.uptimeSec > 0 ? formatUptime(s.uptimeSec) : '—'}</dd>
-          </dl>
-        </div>
-        <div class="dialog__footer">
-          <button class="btn btn--ghost btn--sm" id="info-close-btn">Close</button>
-        </div>
+    panel.innerHTML = `
+      <div class="info-sidebar__header">
+        <span class="info-sidebar__title">ℹ ${escapeHtml(s.name)}</span>
+        <button class="info-sidebar__close" id="info-sidebar-close" aria-label="Close">✕</button>
+      </div>
+      <div class="info-sidebar__body">
+        <dl class="info-grid">
+          <dt>Game</dt>      <dd>${escapeHtml(s.game)}</dd>
+          <dt>Status</dt>    <dd>${statusLabel}</dd>
+          <dt>Players</dt>   <dd>${s.status === 'stopped' ? '—' : s.players + ' / ' + s.maxPlayers}</dd>
+          <dt>Port</dt>      <dd>${s.port}</dd>
+          <dt>PID</dt>       <dd>${s.pid ?? '—'}</dd>
+          <dt>CPU</dt>       <dd>${s.status === 'stopped' ? '—' : s.cpuPercent + '%'}</dd>
+          <dt>RAM</dt>       <dd>${s.status === 'stopped' ? '—' : s.ramMb + ' MB'}</dd>
+          <dt>Uptime</dt>    <dd>${s.uptimeSec > 0 ? formatUptime(s.uptimeSec) : '—'}</dd>
+        </dl>
       </div>`;
 
-    document.body.appendChild(backdrop);
+    // Trigger slide-in on next frame so the CSS transition fires
+    requestAnimationFrame(() => panel.classList.add("open"));
 
-    const close = () => backdrop.remove();
-    backdrop.querySelector("#info-close").addEventListener("click", close);
-    backdrop.querySelector("#info-close-btn").addEventListener("click", close);
-    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-    backdrop.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-    backdrop.querySelector("#info-close-btn").focus();
+    panel.querySelector("#info-sidebar-close").addEventListener("click", closeServerInfo);
+  }
+
+  function closeServerInfo() {
+    const panel = document.getElementById("server-info-sidebar");
+    if (!panel) return;
+    panel.classList.remove("open");
+    // Remove from DOM after the slide-out transition completes
+    panel.addEventListener("transitionend", () => panel.remove(), { once: true });
   }
 
   // ── Change password ─────────────────────────────────────────────
