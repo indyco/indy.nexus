@@ -515,7 +515,7 @@
     loadUsers();
     pollSystem();           // first fetch immediately
     loadServices();
-    setInterval(pollSystem, 2000);
+    setInterval(pollSystem, 5000);
     setInterval(loadServices, 5000);
 
     // Sidebar navigation
