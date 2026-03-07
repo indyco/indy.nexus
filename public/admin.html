@@ -112,26 +112,20 @@
 
     /* ── Services table tweaks ─────────────────────────── */
     #services-table {
-      table-layout: fixed;
+      width: 100%;
     }
     #services-table th,
     #services-table td {
       padding: 0.45rem 0.5rem;
       white-space: nowrap;
+    }
+    /* Let the Service name column truncate so the table never overflows */
+    #services-table td:first-child {
+      max-width: 0;
+      width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    /* Column widths — Service gets the flexible remainder */
-    #services-table th:nth-child(1) { width: auto; }      /* Service */
-    #services-table th:nth-child(2) { width: 6.5rem; }    /* Game */
-    #services-table th:nth-child(3) { width: 5.5rem; }    /* Status */
-    #services-table th:nth-child(4) { width: 4.5rem; }    /* Players */
-    #services-table th:nth-child(5) { width: 4rem; }      /* PID */
-    #services-table th:nth-child(6) { width: 3.5rem; }    /* CPU% */
-    #services-table th:nth-child(7) { width: 4.5rem; }    /* RAM */
-    #services-table th:nth-child(8) { width: 5rem; }      /* Uptime */
-    #services-table th:nth-child(9) { width: 3.5rem; }    /* Port */
-    #services-table th:nth-child(10) { width: 6.5rem; }   /* Actions */
     .svc-status { display: flex; align-items: center; gap: 0.35rem; }
     .svc-dot {
       width: 6px; height: 6px;
