@@ -252,10 +252,6 @@
         <span class="icon" aria-hidden="true">📊</span>
         <span>Resources</span>
       </div>
-      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
-        <span class="icon" aria-hidden="true">⚙</span>
-        <span>Settings</span>
-      </div>
 
       <hr class="sidebar__divider">
       <div class="sidebar__section-title">Users</div>
@@ -268,7 +264,15 @@
       <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="all-users" role="button" aria-pressed="false">
         <span class="icon" aria-hidden="true">👥</span>
         <span>All Users</span>
-        <span class="count" id="all-count" aria-label="all users">0</span>
+        <span class="count" id="all-count" aria-label="total users">0</span>
+      </div>
+
+      <hr class="sidebar__divider">
+      <div class="sidebar__section-title">Settings</div>
+
+      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="settings" role="button" aria-pressed="false">
+        <span class="icon" aria-hidden="true">⚙</span>
+        <span>Admin Settings</span>
       </div>
     </nav>
 
@@ -547,9 +551,9 @@
           <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
           <tr><td><kbd>1</kbd></td><td>Servers tab</td></tr>
           <tr><td><kbd>2</kbd></td><td>Resources tab</td></tr>
-          <tr><td><kbd>3</kbd></td><td>Settings tab</td></tr>
-          <tr><td><kbd>4</kbd></td><td>Pending Users tab</td></tr>
-          <tr><td><kbd>5</kbd></td><td>All Users tab</td></tr>
+          <tr><td><kbd>3</kbd></td><td>Pending Users tab</td></tr>
+          <tr><td><kbd>4</kbd></td><td>All Users tab</td></tr>
+          <tr><td><kbd>5</kbd></td><td>Settings tab</td></tr>
           <tr><td><kbd>r</kbd></td><td>Refresh data</td></tr>
           <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
           <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
@@ -655,9 +659,9 @@
       "?": () => helpDialog.classList.toggle("hidden"),
       "1": () => switchTab("services"),
       "2": () => switchTab("resources"),
-      "3": () => switchTab("settings"),
-      "4": () => switchTab("pending"),
-      "5": () => switchTab("all-users"),
+      "3": () => switchTab("pending"),
+      "4": () => switchTab("all-users"),
+      "5": () => switchTab("settings"),
       "r": () => { loadUsers(); pollSystem(); loadServices(); },
       "q": () => logout(),
       "Escape": () => helpDialog.classList.add("hidden"),
