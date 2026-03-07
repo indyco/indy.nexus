@@ -16,11 +16,11 @@
     .user-row td { vertical-align: middle; }
     .actions-cell { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
-    /* ── Title-bar sparklines ──────────────────────────── */
+    /* ── Title-bar gauge meters ──────────────────────────── */
     .titlebar__graphs {
       display: flex;
-      gap: 0.85rem;
-      margin-right: 0.5rem;
+      gap: 0.75rem;
+      margin-left: 0.75rem;
       font-size: 0.68rem;
       align-items: center;
     }
@@ -28,7 +28,6 @@
       display: flex;
       align-items: center;
       gap: 0.3rem;
-      color: var(--overlay1);
     }
     .titlebar__graph-label {
       color: var(--subtext0);
@@ -37,19 +36,15 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .titlebar__graph-spark {
+    .titlebar__graph-bar {
       font-family: var(--font-mono);
-      letter-spacing: -1px;
+      font-size: 0.62rem;
+      letter-spacing: -0.5px;
       line-height: 1;
     }
-    .titlebar__graph-val {
-      min-width: 2.6em;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-    .titlebar__graph-spark.green  { color: var(--green); }
-    .titlebar__graph-spark.yellow { color: var(--yellow); }
-    .titlebar__graph-spark.red    { color: var(--red); }
+    .titlebar__graph-bar.green  { color: var(--green); }
+    .titlebar__graph-bar.yellow { color: var(--yellow); }
+    .titlebar__graph-bar.red    { color: var(--red); }
 
     /* ── Resource meters ───────────────────────────────── */
     .resource-grid {
@@ -141,27 +136,24 @@
         <span>Admin Panel</span>
       </span>
     </nav>
-    <div class="titlebar__spacer"></div>
 
-    <!-- Mini sparkline graphs -->
+    <!-- Mini bar-gauge meters -->
     <div class="titlebar__graphs" id="titlebar-graphs">
       <div class="titlebar__graph">
         <span class="titlebar__graph-label">CPU</span>
-        <span class="titlebar__graph-spark green" id="tb-cpu-spark"></span>
-        <span class="titlebar__graph-val" id="tb-cpu-val">--%</span>
+        <span class="titlebar__graph-bar green" id="tb-cpu-bar">░░░░░░░░░░</span>
       </div>
       <div class="titlebar__graph">
         <span class="titlebar__graph-label">RAM</span>
-        <span class="titlebar__graph-spark green" id="tb-ram-spark"></span>
-        <span class="titlebar__graph-val" id="tb-ram-val">--%</span>
+        <span class="titlebar__graph-bar green" id="tb-ram-bar">░░░░░░░░░░</span>
       </div>
       <div class="titlebar__graph">
         <span class="titlebar__graph-label">GPU</span>
-        <span class="titlebar__graph-spark green" id="tb-gpu-spark"></span>
-        <span class="titlebar__graph-val" id="tb-gpu-val">--%</span>
+        <span class="titlebar__graph-bar green" id="tb-gpu-bar">░░░░░░░░░░</span>
       </div>
     </div>
 
+    <div class="titlebar__spacer"></div>
     <div class="titlebar__status">
       <div class="dot"></div>
       <span id="nav-username">admin</span>
@@ -727,10 +719,10 @@
       pushHistory('ram', d.ram.percent);
       pushHistory('gpu', d.gpu.percent);
 
-      // ── Title-bar sparklines ──
-      updateTitlebarSpark('cpu', d.cpu.percent);
-      updateTitlebarSpark('ram', d.ram.percent);
-      updateTitlebarSpark('gpu', d.gpu.percent);
+      // ── Title-bar bar gauges ──
+      updateTitlebarBar('cpu', d.cpu.percent);
+      updateTitlebarBar('ram', d.ram.percent);
+      updateTitlebarBar('gpu', d.gpu.percent);
 
       // ── Resources tab ──
       updateResourceCard('cpu', d.cpu.percent, `${d.cpu.cores} cores`);
@@ -738,15 +730,25 @@
       updateResourceCard('gpu', d.gpu.percent, d.gpu.name);
 
       document.getElementById('res-uptime').textContent = `Uptime: ${formatUptime(d.uptime)}`;
-    } catch { /* silent — will retry on next tick */ }
+    } catch (err) {
+      console.error('[system poll]', err);
+    }
   }
 
-  function updateTitlebarSpark(key, pct) {
-    const sparkEl = document.getElementById(`tb-${key}-spark`);
-    const valEl   = document.getElementById(`tb-${key}-val`);
-    sparkEl.textContent = sparkline(history[key]);
-    valEl.textContent = `${pct}%`;
-    setColorClass(sparkEl, pct);
+  /** Render a tiny horizontal bar: ████░░░░░░ (with half-block precision) */
+  function tinyBar(pct, width) {
+    width = width || 10;
+    var units = (pct / 100) * width;
+    var full  = Math.floor(units);
+    var half  = (units - full) >= 0.5 ? 1 : 0;
+    var empty = width - full - half;
+    return '\u2588'.repeat(full) + (half ? '\u258C' : '') + '\u2591'.repeat(empty);
+  }
+
+  function updateTitlebarBar(key, pct) {
+    var barEl = document.getElementById('tb-' + key + '-bar');
+    barEl.textContent = tinyBar(pct);
+    setColorClass(barEl, pct);
   }
 
   function updateResourceCard(key, pct, detail) {
