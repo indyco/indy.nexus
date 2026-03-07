@@ -370,11 +370,11 @@ function getGpuPercent() {
 
 // Simulated game-server service list
 const SERVICES = [
-  { id: "mc-1",  name: "minecraft-survival", game: "Minecraft", port: 25565, status: "running",  pid: 2041, uptimeSec: 86400 * 3 + 7200,  cpuPercent: 12, ramMb: 2048 },
-  { id: "val-1", name: "valheim-dedicated",   game: "Valheim",   port: 2456,  status: "running",  pid: 2187, uptimeSec: 86400 + 3600,       cpuPercent: 8,  ramMb: 1536 },
-  { id: "cs-1",  name: "cs2-competitive",     game: "CS2",       port: 27015, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0    },
-  { id: "mc-2",  name: "minecraft-creative",  game: "Minecraft", port: 25566, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0    },
-  { id: "ark-1", name: "ark-survival",        game: "ARK",       port: 7777,  status: "starting", pid: 3012, uptimeSec: 45,                 cpuPercent: 34, ramMb: 3072 },
+  { id: "mc-1",  name: "minecraft-survival", game: "Minecraft", port: 25565, status: "running",  pid: 2041, uptimeSec: 86400 * 3 + 7200,  cpuPercent: 12, ramMb: 2048, players: 8,  maxPlayers: 20 },
+  { id: "val-1", name: "valheim-dedicated",   game: "Valheim",   port: 2456,  status: "running",  pid: 2187, uptimeSec: 86400 + 3600,       cpuPercent: 8,  ramMb: 1536, players: 3,  maxPlayers: 10 },
+  { id: "cs-1",  name: "cs2-competitive",     game: "CS2",       port: 27015, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0,    players: 0,  maxPlayers: 10 },
+  { id: "mc-2",  name: "minecraft-creative",  game: "Minecraft", port: 25566, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0,    players: 0,  maxPlayers: 16 },
+  { id: "ark-1", name: "ark-survival",        game: "ARK",       port: 7777,  status: "starting", pid: 3012, uptimeSec: 45,                 cpuPercent: 34, ramMb: 3072, players: 0,  maxPlayers: 32 },
 ];
 
 // GET /api/admin/system — live system resource snapshot
@@ -400,8 +400,50 @@ app.get("/api/admin/services", requireAdmin, (req, res) => {
     cpuPercent: s.status === "running"
       ? Math.min(100, Math.max(0, s.cpuPercent + Math.round((Math.random() - 0.5) * 4)))
       : s.cpuPercent,
+    players: s.status === "running"
+      ? Math.min(s.maxPlayers, Math.max(0, s.players + Math.round((Math.random() - 0.5) * 2)))
+      : 0,
   }));
   res.json(live);
+});
+
+// POST /api/admin/services/:id/start
+app.post("/api/admin/services/:id/start", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+  const svc = SERVICES.find((s) => s.id === req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
+  svc.status = "running";
+  svc.pid = 3000 + Math.floor(Math.random() * 1000);
+  svc.uptimeSec = 0;
+  svc.cpuPercent = Math.round(Math.random() * 15) + 5;
+  svc.ramMb = Math.round(Math.random() * 1024) + 512;
+  res.json({ message: `Service "${svc.name}" started` });
+});
+
+// POST /api/admin/services/:id/stop
+app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+  const svc = SERVICES.find((s) => s.id === req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
+  svc.status = "stopped";
+  svc.pid = null;
+  svc.uptimeSec = 0;
+  svc.cpuPercent = 0;
+  svc.ramMb = 0;
+  svc.players = 0;
+  res.json({ message: `Service "${svc.name}" stopped` });
+});
+
+// POST /api/admin/services/:id/restart
+app.post("/api/admin/services/:id/restart", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+  const svc = SERVICES.find((s) => s.id === req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  svc.status = "running";
+  svc.pid = 3000 + Math.floor(Math.random() * 1000);
+  svc.uptimeSec = 0;
+  svc.cpuPercent = Math.round(Math.random() * 15) + 5;
+  svc.ramMb = Math.round(Math.random() * 1024) + 512;
+  res.json({ message: `Service "${svc.name}" restarted` });
 });
 
 // POST /api/admin/change-password
