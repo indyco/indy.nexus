@@ -111,20 +111,9 @@
     .resource-card__spark.red    { color: var(--red); }
 
     /* ── Services table tweaks ─────────────────────────── */
-    #services-table {
-      width: 100%;
-    }
     #services-table th,
     #services-table td {
       padding: 0.45rem 0.5rem;
-      white-space: nowrap;
-    }
-    /* Let the Service name column truncate so the table never overflows */
-    #services-table td:first-child {
-      max-width: 0;
-      width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
     .svc-status { display: flex; align-items: center; gap: 0.35rem; }
     .svc-dot {
