@@ -39,14 +39,8 @@
   <main class="main" id="main-content">
     <section class="landing" aria-label="Welcome">
 
-      <!-- ASCII Art Logo -->
-      <pre class="ascii-logo" aria-label="indy.nexus logo" role="img">
- ██╗███╗   ██╗██████╗ ██╗   ██╗   ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
- ██║████╗  ██║██╔══██╗╚██╗ ██╔╝   ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
- ██║██╔██╗ ██║██║  ██║ ╚████╔╝    ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
- ██║██║╚██╗██║██║  ██║  ╚██╔╝     ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
- ██║██║ ╚████║██████╔╝   ██║   ██╗██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
- ╚═╝╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
+      <!-- ASCII Art Logo (typewriter animated) -->
+      <pre class="ascii-logo" id="ascii-logo" aria-label="indy.nexus logo" role="img"></pre>
 
       <p class="landing__tagline">
         Your personal <span>game server</span> hosting platform.
@@ -68,16 +62,6 @@
           <div class="feature-card__icon">🎮</div>
           <h3 class="feature-card__title">Game Servers</h3>
           <p class="feature-card__desc">Host Minecraft, Valheim, CS2, and more from a single dashboard.</p>
-        </article>
-        <article class="feature-card" role="listitem">
-          <div class="feature-card__icon">🔒</div>
-          <h3 class="feature-card__title">Private Access</h3>
-          <p class="feature-card__desc">Invite-only registration with manual admin approval for full control.</p>
-        </article>
-        <article class="feature-card" role="listitem">
-          <div class="feature-card__icon">⌨</div>
-          <h3 class="feature-card__title">TUI Interface</h3>
-          <p class="feature-card__desc">Navigate with keyboard shortcuts or mouse. Fully keyboard-accessible.</p>
         </article>
         <article class="feature-card" role="listitem">
           <div class="feature-card__icon">📊</div>
@@ -119,6 +103,60 @@
 <script src="/js/tui.js"></script>
 <script>
   "use strict";
+
+  // ── Typewriter animation for ASCII logo ──
+  (function typewriterLogo() {
+    const lines = [
+      ' ██╗███╗   ██╗██████╗ ██╗   ██╗   ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗',
+      ' ██║████╗  ██║██╔══██╗╚██╗ ██╔╝   ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝',
+      ' ██║██╔██╗ ██║██║  ██║ ╚████╔╝    ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗',
+      ' ██║██║╚██╗██║██║  ██║  ╚██╔╝     ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║',
+      ' ██║██║ ╚████║██████╔╝   ██║   ██╗██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║',
+      ' ╚═╝╚═╝  ╚═══╝╚═════╝    ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝',
+    ];
+    const el = document.getElementById('ascii-logo');
+    if (!el) return;
+
+    const charsPerTick = 4;   // characters revealed per frame
+    const lineDelay = 60;     // ms pause between lines
+    const charDelay = 12;     // ms between character groups
+    const repeatDelay = 10000; // ms before replaying
+
+    function play() {
+      let lineIdx = 0;
+      let charIdx = 0;
+      let buffer = '';
+      el.textContent = '';
+      el.classList.remove('ascii-logo--done');
+
+      function tick() {
+        if (lineIdx >= lines.length) {
+          el.textContent = buffer.replace(/\n$/, ''); // strip trailing cursor
+          el.classList.add('ascii-logo--done');
+          setTimeout(play, repeatDelay);
+          return;
+        }
+        const line = lines[lineIdx];
+        const end = Math.min(charIdx + charsPerTick, line.length);
+        buffer += line.slice(charIdx, end);
+        el.textContent = buffer + '█';   // trailing cursor block
+        charIdx = end;
+
+        if (charIdx >= line.length) {
+          buffer += '\n';
+          lineIdx++;
+          charIdx = 0;
+          setTimeout(tick, lineDelay);
+        } else {
+          setTimeout(tick, charDelay);
+        }
+      }
+      tick();
+    }
+
+    // Start after a tiny delay so the page renders first
+    setTimeout(play, 200);
+  })();
 
   // If already logged in, go to dashboard
   (async () => {
