@@ -12,6 +12,7 @@ const { v4: uuidv4 } = require("uuid");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -309,6 +310,85 @@ app.post("/api/admin/users/:id/revoke", adminWriteLimiter, requireAdmin, require
   user.status = "pending";
   saveUsers(users);
   res.json({ message: `User "${user.username}" reverted to pending` });
+});
+
+// ---------------------------------------------------------------------------
+// System monitoring helpers
+// ---------------------------------------------------------------------------
+
+let prevCpuInfo = null;
+
+function getCpuPercent() {
+  const cpus = os.cpus();
+  let idle = 0, total = 0;
+  cpus.forEach((cpu) => {
+    for (const type in cpu.times) total += cpu.times[type];
+    idle += cpu.times.idle;
+  });
+  if (!prevCpuInfo) {
+    prevCpuInfo = { idle, total };
+    return 0;
+  }
+  const idleDiff = idle - prevCpuInfo.idle;
+  const totalDiff = total - prevCpuInfo.total;
+  prevCpuInfo = { idle, total };
+  return totalDiff === 0 ? 0 : Math.round((1 - idleDiff / totalDiff) * 100);
+}
+
+function getRamInfo() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  const used = total - free;
+  return {
+    total,
+    used,
+    free,
+    percent: Math.round((used / total) * 100),
+  };
+}
+
+// Simulated GPU utilisation (varies realistically over time)
+let gpuBase = 15;
+function getGpuPercent() {
+  gpuBase += (Math.random() - 0.5) * 6;
+  gpuBase = Math.max(0, Math.min(100, gpuBase));
+  return Math.round(gpuBase);
+}
+
+// Simulated game-server service list
+const SERVICES = [
+  { id: "mc-1",  name: "minecraft-survival", game: "Minecraft", port: 25565, status: "running",  pid: 2041, uptimeSec: 86400 * 3 + 7200,  cpuPercent: 12, ramMb: 2048 },
+  { id: "val-1", name: "valheim-dedicated",   game: "Valheim",   port: 2456,  status: "running",  pid: 2187, uptimeSec: 86400 + 3600,       cpuPercent: 8,  ramMb: 1536 },
+  { id: "cs-1",  name: "cs2-competitive",     game: "CS2",       port: 27015, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0    },
+  { id: "mc-2",  name: "minecraft-creative",  game: "Minecraft", port: 25566, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0    },
+  { id: "ark-1", name: "ark-survival",        game: "ARK",       port: 7777,  status: "starting", pid: 3012, uptimeSec: 45,                 cpuPercent: 34, ramMb: 3072 },
+];
+
+// GET /api/admin/system — live system resource snapshot
+app.get("/api/admin/system", requireAdmin, (req, res) => {
+  const ram = getRamInfo();
+  res.json({
+    cpu: { percent: getCpuPercent(), cores: os.cpus().length },
+    ram: {
+      percent: ram.percent,
+      usedMb: Math.round(ram.used / 1048576),
+      totalMb: Math.round(ram.total / 1048576),
+    },
+    gpu: { percent: getGpuPercent(), name: "NVIDIA GeForce RTX 3070" },
+    uptime: os.uptime(),
+  });
+});
+
+// GET /api/admin/services — running game-server processes
+app.get("/api/admin/services", requireAdmin, (req, res) => {
+  // Add small random jitter to make CPU numbers feel live
+  const live = SERVICES.map((s) => ({
+    ...s,
+    cpuPercent: s.status === "running"
+      ? Math.min(100, Math.max(0, s.cpuPercent + Math.round((Math.random() - 0.5) * 4)))
+      : s.cpuPercent,
+  }));
+  res.json(live);
 });
 
 // POST /api/admin/change-password
