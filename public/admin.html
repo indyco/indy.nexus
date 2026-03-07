@@ -762,21 +762,28 @@
     }
 
     tbody.innerHTML = users.map((u) => {
-      const statusBadge = {
-        pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
-        approved: `<span class="badge badge--approved">✔ Approved</span>`,
-        denied:   `<span class="badge badge--denied">✖ Denied</span>`,
-      }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
+      const isAdmin = u.role === "admin";
 
-      const actions = u.status === "pending"
-        ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
-           <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
-        : u.status === "approved"
-        ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>`
-        : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+      const statusBadge = isAdmin
+        ? `<span class="tag mauve" style="font-size:0.68rem; padding:0.1rem 0.45rem; border-radius:2px">ADMIN</span>`
+        : {
+            pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
+            approved: `<span class="badge badge--approved">✔ Approved</span>`,
+            denied:   `<span class="badge badge--denied">✖ Denied</span>`,
+          }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
+
+      let actions = '';
+      if (!isAdmin) {
+        actions = u.status === "pending"
+          ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
+             <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
+          : u.status === "approved"
+          ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>`
+          : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+      }
 
       return `
-        <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${u.status}">
+        <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${isAdmin ? 'admin' : u.status}">
           <td><strong>${escapeHtml(u.username)}</strong></td>
           <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
           <td>${statusBadge}</td>
