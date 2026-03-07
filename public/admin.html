@@ -368,7 +368,7 @@
       <section class="tab-pane" id="tab-settings" aria-label="Admin settings">
         <div class="content-area">
 
-          <div class="panel" style="max-width:440px">
+          <div class="panel" style="max-width:440px; margin-bottom: 1.5rem">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">🔑</span>
               Change Admin Password
@@ -398,6 +398,40 @@
                   </div>
                   <button type="submit" class="btn btn--primary" id="change-pass-btn">
                     <span class="btn-text">🔑 Change Password</span>
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+
+          <div class="panel" style="max-width:440px">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">👤</span>
+              Rename User
+            </div>
+            <div class="panel__body flex-col gap-md">
+
+              <div id="rename-alert" role="alert" aria-live="polite"></div>
+
+              <form id="rename-user-form" novalidate>
+                <div class="flex-col gap-md">
+                  <div class="field">
+                    <label for="user-select">Select User <span class="req">*</span></label>
+                    <select id="user-select" class="input" required aria-required="true">
+                      <option value="">Loading users...</option>
+                    </select>
+                    <span class="text-xs text-muted" style="margin-top:.2rem">Select any user, including admin accounts.</span>
+                  </div>
+                  <div class="field">
+                    <label for="new-username">New Username <span class="req">*</span></label>
+                    <input type="text" id="new-username" class="input" required
+                      aria-required="true" placeholder="new-username"
+                      aria-describedby="username-hint">
+                    <span id="username-hint" class="text-xs text-muted" style="margin-top:.2rem">3-32 characters, letters, numbers, _ and - only.</span>
+                  </div>
+                  <button type="submit" class="btn btn--primary" id="rename-user-btn">
+                    <span class="btn-text">👤 Rename User</span>
                   </button>
                 </div>
               </form>
@@ -542,6 +576,10 @@
 
     // Change password form
     document.getElementById("change-password-form").addEventListener("submit", onChangePassword);
+
+    // Rename user form
+    document.getElementById("rename-user-form").addEventListener("submit", onRenameUser);
+    loadAllUsersForRename();
 
     // Global shortcuts
     registerGlobalShortcuts({
@@ -815,7 +853,7 @@
     `).join("");
   }
 
-  // ── Change password ─────────────────────────────────────────────────────────
+  // ── Change password ─────────────────────────────────────────────
 
   async function onChangePassword(e) {
     e.preventDefault();
@@ -847,6 +885,101 @@
         body: { currentPassword: current, newPassword: next },
       });
       showAlert(alertEl, data.message, "success");
+      e.target.reset();
+    } catch (err) {
+      showAlert(alertEl, err.message, "error");
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  }
+
+  // ── Rename user ─────────────────────────────────────────────────
+
+  async function loadAllUsersForRename() {
+    try {
+      const users = await apiFetch("/api/admin/all-users");
+      const select = document.getElementById("user-select");
+      
+      if (users.length === 0) {
+        select.innerHTML = '<option value="">No users found</option>';
+        return;
+      }
+      
+      // Sort users: admins first, then by username
+      users.sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        return a.username.localeCompare(b.username);
+      });
+      
+      select.innerHTML = '<option value="">Select a user...</option>' + 
+        users.map(u => {
+          const roleTag = u.role === 'admin' ? ' (Admin)' : '';
+          const statusTag = u.status !== 'approved' ? ` [${u.status}]` : '';
+          return `<option value="${u.id}" data-username="${escapeHtml(u.username)}">
+            ${escapeHtml(u.username)}${roleTag}${statusTag}
+          </option>`;
+        }).join("");
+    } catch (err) {
+      console.error('Failed to load users for rename:', err);
+      document.getElementById("user-select").innerHTML = '<option value="">Error loading users</option>';
+    }
+  }
+
+  async function onRenameUser(e) {
+    e.preventDefault();
+    const alertEl = document.getElementById("rename-alert");
+    clearAlert(alertEl);
+
+    const select = document.getElementById("user-select");
+    const userId = select.value;
+    const newUsername = document.getElementById("new-username").value.trim();
+    const btn = document.getElementById("rename-user-btn");
+
+    if (!userId) {
+      showAlert(alertEl, "Please select a user to rename.", "error");
+      return;
+    }
+    if (!newUsername) {
+      showAlert(alertEl, "Please enter a new username.", "error");
+      return;
+    }
+    if (newUsername.length < 3 || newUsername.length > 32) {
+      showAlert(alertEl, "Username must be 3-32 characters.", "error");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(newUsername)) {
+      showAlert(alertEl, "Username may only contain letters, numbers, _ and -.", "error");
+      return;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const oldUsername = selectedOption.getAttribute('data-username');
+
+    if (oldUsername === newUsername) {
+      showAlert(alertEl, "New username must be different from current username.", "error");
+      return;
+    }
+
+    setButtonLoading(btn, true);
+    try {
+      const data = await apiFetch("/api/admin/rename-user", {
+        method: "POST",
+        body: { userId, newUsername },
+      });
+      showAlert(alertEl, data.message, "success");
+      
+      // If admin renamed themselves, update the UI
+      if (data.selfRenamed) {
+        document.getElementById("nav-username").textContent = newUsername;
+        currentUser.username = newUsername;
+      }
+      
+      // Reload user lists
+      loadAllUsersForRename();
+      loadUsers();
+      
+      // Reset form
       e.target.reset();
     } catch (err) {
       showAlert(alertEl, err.message, "error");
