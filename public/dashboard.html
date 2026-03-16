@@ -50,9 +50,9 @@
       <div class="sidebar__section-title">Game Servers</div>
 
       <div class="sidebar__item active focus-ring" tabindex="0" data-nav-item data-tab="servers" role="button" aria-pressed="true">
-        <span class="icon" aria-hidden="true">▣</span>
-        <span>All Servers</span>
-        <span class="count" id="sidebar-server-count" aria-label="server count">0</span>
+        <span class="icon" aria-hidden="true">🖥</span>
+        <span>Servers</span>
+        <span class="count" id="sidebar-server-count" aria-label="running servers">0</span>
       </div>
       <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="logs" role="button" aria-pressed="false">
         <span class="icon" aria-hidden="true">≡</span>
@@ -73,15 +73,8 @@
 
       <!-- ── Tab: Servers ──────────────────────────────── -->
       <section class="tab-pane active" id="tab-servers" aria-label="Game servers">
-
-        <div class="tab-strip" role="tablist" id="server-tabs" aria-label="Server filter tabs">
-          <button class="tab-strip__tab active focus-ring" role="tab" aria-selected="true"  data-filter="all"     tabindex="0">All</button>
-          <button class="tab-strip__tab focus-ring"        role="tab" aria-selected="false" data-filter="online"  tabindex="-1">Online</button>
-          <button class="tab-strip__tab focus-ring"        role="tab" aria-selected="false" data-filter="offline" tabindex="-1">Offline</button>
-        </div>
-
-        <div class="content-area" id="server-list-area" role="list" aria-label="Game server list">
-          <!-- Populated by JS -->
+        <div class="content-area">
+          <div id="servers-tab-mount"></div>
         </div>
 
       </section>
@@ -98,7 +91,7 @@
               <div class="log-output" id="console-log" aria-live="polite" aria-label="Server console">
               </div>
               <p class="text-xs text-muted mt-sm">
-                Select a server and click its console button to view output here.
+                Server actions and status updates appear here.
               </p>
             </div>
           </div>
@@ -185,11 +178,13 @@
 </div>
 
 <script src="/js/tui.js"></script>
+<script src="/js/servers-tab.js"></script>
 <script>
   "use strict";
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   let currentUser = null;
+  let serversTab = null;
 
   (async () => {
     currentUser = await requireAuth("/login.html");
@@ -204,25 +199,6 @@
     initDashboard();
   })();
 
-  // ── Sample server data (replace with real API when available) ───────────────
-  const SAMPLE_SERVERS = [
-    { id: "mc-1",  name: "Minecraft Survival",  game: "Minecraft",  status: "online",  players: "4/20",  port: 25565 },
-    { id: "val-1", name: "Valheim Dedicated",    game: "Valheim",    status: "online",  players: "2/10",  port: 2456  },
-    { id: "cs-1",  name: "CS2 Competitive",      game: "CS2",        status: "offline", players: "0/16",  port: 27015 },
-    { id: "mc-2",  name: "Minecraft Creative",   game: "Minecraft",  status: "offline", players: "0/20",  port: 25566 },
-    { id: "ark-1", name: "ARK: Survival",        game: "ARK",        status: "starting", players: "0/30", port: 7777  },
-  ];
-
-  const GAME_ICONS = {
-    Minecraft: "⛏",
-    Valheim:   "⚔",
-    CS2:       "🎯",
-    ARK:       "🦕",
-    default:   "🖥",
-  };
-
-  let currentFilter = "all";
-  let serverData = [...SAMPLE_SERVERS];
 
   function initDashboard() {
     document.getElementById("nav-username").textContent = currentUser.username;
@@ -230,9 +206,19 @@
     document.getElementById("account-role").textContent = currentUser.role;
     document.getElementById("account-status").innerHTML =
       `<span class="badge badge--approved">● Approved</span>`;
-
-    renderServers();
-    updateStatusBar();
+    renderServersTabShell({ mountId: "servers-tab-mount" });
+    serversTab = initServersTab({
+      apiBasePath: "/api/services",
+      countElementId: "sidebar-server-count",
+      onData: (services, running) => {
+        document.getElementById("statusbar-server-status").textContent =
+          `${running}/${services.length} servers online`;
+      },
+      onActionMessage: (message, type) => {
+        const level = type === "warning" ? "warn" : type === "success" ? "ok" : "info";
+        appendLog(document.getElementById("console-log"), level, message);
+      },
+    });
 
     // Sidebar navigation
     enableSidebarNav(document.getElementById("sidebar"));
@@ -246,20 +232,6 @@
       });
     });
 
-    // Tab strip
-    const tabStrip = document.getElementById("server-tabs");
-    enableTabNav(tabStrip, (id) => {});
-    tabStrip.querySelectorAll(".tab-strip__tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        currentFilter = tab.dataset.filter;
-        tabStrip.querySelectorAll(".tab-strip__tab").forEach((t) => {
-          t.classList.toggle("active", t === tab);
-          t.setAttribute("aria-selected", t === tab ? "true" : "false");
-          t.tabIndex = t === tab ? 0 : -1;
-        });
-        renderServers();
-      });
-    });
 
     // Logout
     document.getElementById("logout-btn").addEventListener("click", logout);
@@ -271,8 +243,6 @@
     document.getElementById("help-close-btn").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
 
-    // Server list keyboard nav
-    enableListNav(document.getElementById("server-list-area"), ".server-card");
 
     // Global shortcuts
     registerGlobalShortcuts({
@@ -296,116 +266,6 @@
       item.classList.toggle("active", active);
       item.setAttribute("aria-pressed", active ? "true" : "false");
     });
-  }
-
-  function renderServers() {
-    const area = document.getElementById("server-list-area");
-    const filtered = serverData.filter((s) => {
-      if (currentFilter === "all") return true;
-      return s.status === currentFilter;
-    });
-
-    if (filtered.length === 0) {
-      area.innerHTML = `
-        <div class="text-muted text-sm" style="padding:2rem; text-align:center;">
-          No servers match this filter.
-        </div>`;
-      return;
-    }
-
-    area.innerHTML = filtered.map((server) => `
-      <div
-        class="server-card focus-ring"
-        tabindex="0"
-        data-nav-item
-        data-id="${escapeHtml(server.id)}"
-        role="listitem"
-        aria-label="${escapeHtml(server.name)} — ${server.status}"
-      >
-        <div class="server-card__icon" aria-hidden="true">
-          ${GAME_ICONS[server.game] || GAME_ICONS.default}
-        </div>
-        <div class="server-card__info">
-          <div class="server-card__name">${escapeHtml(server.name)}</div>
-          <div class="server-card__meta">
-            ${escapeHtml(server.game)} &nbsp;·&nbsp; Port ${server.port} &nbsp;·&nbsp;
-            ${server.players} players
-          </div>
-        </div>
-        <div class="server-card__actions">
-          <span class="badge badge--${server.status}">
-            ${server.status === "online" ? "● " : server.status === "starting" ? "◌ " : "○ "}${server.status}
-          </span>
-          ${server.status === "online" ? `
-            <button
-              class="btn btn--danger btn--sm"
-              onclick="toggleServer('${server.id}', 'stop')"
-              aria-label="Stop ${escapeHtml(server.name)}"
-            >Stop</button>
-          ` : server.status === "offline" ? `
-            <button
-              class="btn btn--success btn--sm"
-              onclick="toggleServer('${server.id}', 'start')"
-              aria-label="Start ${escapeHtml(server.name)}"
-            >Start</button>
-          ` : `
-            <button class="btn btn--ghost btn--sm" disabled>Starting…</button>
-          `}
-          <button
-            class="btn btn--ghost btn--sm"
-            onclick="openConsole('${server.id}')"
-            aria-label="Open console for ${escapeHtml(server.name)}"
-          >Console</button>
-        </div>
-      </div>
-    `).join("");
-
-    document.getElementById("sidebar-server-count").textContent = serverData.length;
-  }
-
-  function updateStatusBar() {
-    const online = serverData.filter((s) => s.status === "online").length;
-    document.getElementById("statusbar-server-status").textContent =
-      `${online}/${serverData.length} servers online`;
-  }
-
-  function toggleServer(id, action) {
-    const server = serverData.find((s) => s.id === id);
-    if (!server) return;
-
-    const newStatus = action === "start" ? "starting" : "offline";
-
-    showConfirmDialog({
-      title: action === "start" ? "Start Server" : "Stop Server",
-      message: `${action === "start" ? "Start" : "Stop"} "${server.name}"?`,
-      confirmText: action === "start" ? "▶ Start" : "■ Stop",
-      onConfirm: () => {
-        server.status = newStatus;
-        renderServers();
-        updateStatusBar();
-        const logEl = document.getElementById("console-log");
-        appendLog(logEl, "info", `[${server.name}] ${action === "start" ? "Starting server…" : "Stopping server…"}`);
-
-        if (action === "start") {
-          setTimeout(() => {
-            server.status = "online";
-            renderServers();
-            updateStatusBar();
-            appendLog(logEl, "ok", `[${server.name}] Server is now online.`);
-          }, 2000);
-        }
-      },
-    });
-  }
-
-  function openConsole(id) {
-    const server = serverData.find((s) => s.id === id);
-    if (!server) return;
-    switchTab("logs");
-    const logEl = document.getElementById("console-log");
-    appendLog(logEl, "info", `=== Console: ${server.name} ===`);
-    appendLog(logEl, "info", `Status: ${server.status}`);
-    appendLog(logEl, "info", `Port: ${server.port}`);
   }
 </script>
 

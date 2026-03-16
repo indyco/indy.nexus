@@ -17,9 +17,29 @@ async function apiFetch(url, options = {}) {
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+  const contentType = res.headers.get("content-type") || "";
+  const raw = await res.text();
+  let data = null;
+
+  if (raw.length > 0 && contentType.includes("application/json")) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    throw new Error(`Request failed (${res.status})`);
+  }
+
+  if (data) {
+    return data;
+  }
+  return {};
 }
 
 async function getMe() {
@@ -38,6 +58,10 @@ async function requireAuth(redirectTo = "/login.html") {
     window.location.href = redirectTo;
     return null;
   }
+  if (me.mustChangePassword && !window.location.pathname.endsWith("/reset-password.html")) {
+    window.location.href = "/reset-password.html";
+    return null;
+  }
   return me;
 }
 
@@ -45,6 +69,10 @@ async function requireAdmin(redirectTo = "/dashboard.html") {
   const me = await getMe();
   if (!me.authenticated) {
     window.location.href = "/login.html";
+    return null;
+  }
+  if (me.mustChangePassword && !window.location.pathname.endsWith("/reset-password.html")) {
+    window.location.href = "/reset-password.html";
     return null;
   }
   if (me.role !== "admin") {
@@ -57,6 +85,10 @@ async function requireAdmin(redirectTo = "/dashboard.html") {
 async function redirectIfLoggedIn(redirectTo = "/dashboard.html") {
   const me = await getMe();
   if (me.authenticated) {
+    if (me.mustChangePassword) {
+      window.location.href = "/reset-password.html";
+      return;
+    }
     window.location.href = redirectTo;
   }
 }

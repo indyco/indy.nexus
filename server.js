@@ -13,6 +13,7 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +51,16 @@ function saveUsers(users) {
 
 function findUser(predicate) {
   return loadUsers().find(predicate);
+}
+
+function generateTemporaryPassword(length = 8) {
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i += 1) {
+    const idx = crypto.randomInt(0, charset.length);
+    result += charset[idx];
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +185,7 @@ app.get("/api/me", (req, res) => {
     username: user.username,
     role: user.role,
     status: user.status,
+    mustChangePassword: !!user.mustChangePassword,
   });
 });
 
@@ -200,7 +212,11 @@ app.post("/api/register", authLimiter, requireCsrfHeader, (req, res) => {
 
   const users = loadUsers();
   if (users.find((u) => u.username.toLowerCase() === username.toLowerCase())) {
-    return res.status(409).json({ error: "Username already taken" });
+    // Intentionally return the same response as a normal registration to
+    // prevent non-admin username enumeration.
+    return res.status(201).json({
+      message: "Registration successful. Your account is awaiting admin approval.",
+    });
   }
 
   const hash = bcrypt.hashSync(password, 10);
@@ -248,11 +264,15 @@ app.post("/api/login", authLimiter, requireCsrfHeader, (req, res) => {
 
   req.session.userId = user.id;
   req.session.role = user.role;
+  req.session.mustChangePassword = !!user.mustChangePassword;
 
   res.json({
-    message: "Login successful",
+    message: user.mustChangePassword
+      ? "Login successful. You must reset your password before continuing."
+      : "Login successful",
     username: user.username,
     role: user.role,
+    mustChangePassword: !!user.mustChangePassword,
   });
 });
 
@@ -266,12 +286,14 @@ app.post("/api/logout", requireCsrfHeader, (req, res) => {
 // GET /api/admin/users — list all users (admin only)
 app.get("/api/admin/users", requireAdmin, (req, res) => {
   const users = loadUsers()
-    .map(({ id, username, role, status, createdAt }) => ({
+    .map(({ id, username, role, status, createdAt, temporaryPassword, mustChangePassword }) => ({
       id,
       username,
       role,
       status,
       createdAt,
+      temporaryPassword: temporaryPassword || null,
+      mustChangePassword: !!mustChangePassword,
     }));
   res.json(users);
 });
@@ -279,12 +301,14 @@ app.get("/api/admin/users", requireAdmin, (req, res) => {
 // GET /api/admin/all-users — list ALL users including admins (admin only, for rename feature)
 app.get("/api/admin/all-users", requireAdmin, (req, res) => {
   const users = loadUsers()
-    .map(({ id, username, role, status, createdAt }) => ({
+    .map(({ id, username, role, status, createdAt, temporaryPassword, mustChangePassword }) => ({
       id,
       username,
       role,
       status,
       createdAt,
+      temporaryPassword: temporaryPassword || null,
+      mustChangePassword: !!mustChangePassword,
     }));
   res.json(users);
 });
@@ -323,6 +347,69 @@ app.post("/api/admin/users/:id/revoke", adminWriteLimiter, requireAdmin, require
   user.status = "pending";
   saveUsers(users);
   res.json({ message: `User "${user.username}" reverted to pending` });
+});
+
+// POST /api/admin/users/:id/reset-password — generate temporary password and force reset on next login
+app.post("/api/admin/users/:id/reset-password", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+  const users = loadUsers();
+  const user = users.find((u) => u.id === req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  if (user.role === "admin") {
+    return res.status(400).json({ error: "Admin passwords cannot be reset from this action" });
+  }
+  if (user.status !== "approved") {
+    return res.status(400).json({ error: "Only approved users can have their password reset" });
+  }
+
+  const temporaryPassword = generateTemporaryPassword(8);
+  user.passwordHash = bcrypt.hashSync(temporaryPassword, 10);
+  user.mustChangePassword = true;
+  user.temporaryPassword = temporaryPassword;
+  user.temporaryPasswordCreatedAt = new Date().toISOString();
+  saveUsers(users);
+
+  res.json({
+    message: `Password reset for "${user.username}"`,
+    temporaryPassword,
+  });
+});
+
+// POST /api/account/reset-password — complete forced password reset using temporary password session
+app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHeader, (req, res) => {
+  const { newPassword, confirmPassword } = req.body;
+  if (!newPassword || !confirmPassword) {
+    return res.status(400).json({ error: "Both password fields are required" });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: "Passwords do not match" });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  const users = loadUsers();
+  const user = users.find((u) => u.id === req.session.userId);
+  if (!user) {
+    req.session.destroy(() => {});
+    return res.status(401).json({ error: "Session is no longer valid" });
+  }
+  if (!user.mustChangePassword) {
+    return res.status(400).json({ error: "Password reset is not required for this account" });
+  }
+  if (bcrypt.compareSync(newPassword, user.passwordHash)) {
+    return res.status(400).json({ error: "New password must be different from the temporary password" });
+  }
+
+  user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  user.mustChangePassword = false;
+  delete user.temporaryPassword;
+  delete user.temporaryPasswordCreatedAt;
+  saveUsers(users);
+
+  req.session.mustChangePassword = false;
+  res.json({ message: "Password updated successfully" });
 });
 
 // ---------------------------------------------------------------------------
@@ -377,6 +464,47 @@ const SERVICES = [
   { id: "ark-1", name: "ark-survival",        game: "ARK",       port: 7777,  status: "starting", pid: 3012, uptimeSec: 45,                 cpuPercent: 34, ramMb: 3072, players: 0,  maxPlayers: 32 },
 ];
 
+function listLiveServices() {
+  return SERVICES.map((s) => ({
+    ...s,
+    cpuPercent: s.status === "running"
+      ? Math.min(100, Math.max(0, s.cpuPercent + Math.round((Math.random() - 0.5) * 4)))
+      : s.cpuPercent,
+    players: s.status === "running"
+      ? Math.min(s.maxPlayers, Math.max(0, s.players + Math.round((Math.random() - 0.5) * 2)))
+      : 0,
+  }));
+}
+
+function findService(id) {
+  return SERVICES.find((s) => s.id === id);
+}
+
+function startService(svc) {
+  svc.status = "running";
+  svc.pid = 3000 + Math.floor(Math.random() * 1000);
+  svc.uptimeSec = 0;
+  svc.cpuPercent = Math.round(Math.random() * 15) + 5;
+  svc.ramMb = Math.round(Math.random() * 1024) + 512;
+}
+
+function stopService(svc) {
+  svc.status = "stopped";
+  svc.pid = null;
+  svc.uptimeSec = 0;
+  svc.cpuPercent = 0;
+  svc.ramMb = 0;
+  svc.players = 0;
+}
+
+function restartService(svc) {
+  svc.status = "running";
+  svc.pid = 3000 + Math.floor(Math.random() * 1000);
+  svc.uptimeSec = 0;
+  svc.cpuPercent = Math.round(Math.random() * 15) + 5;
+  svc.ramMb = Math.round(Math.random() * 1024) + 512;
+}
+
 // GET /api/admin/system — live system resource snapshot
 app.get("/api/admin/system", requireAdmin, (req, res) => {
   const ram = getRamInfo();
@@ -392,24 +520,43 @@ app.get("/api/admin/system", requireAdmin, (req, res) => {
   });
 });
 
+// GET /api/services — running game-server processes (authenticated users)
+app.get("/api/services", requireAuth, (req, res) => {
+  res.json(listLiveServices());
+});
 // GET /api/admin/services — running game-server processes
 app.get("/api/admin/services", requireAdmin, (req, res) => {
-  // Add small random jitter to make CPU numbers feel live
-  const live = SERVICES.map((s) => ({
-    ...s,
-    cpuPercent: s.status === "running"
-      ? Math.min(100, Math.max(0, s.cpuPercent + Math.round((Math.random() - 0.5) * 4)))
-      : s.cpuPercent,
-    players: s.status === "running"
-      ? Math.min(s.maxPlayers, Math.max(0, s.players + Math.round((Math.random() - 0.5) * 2)))
-      : 0,
-  }));
-  res.json(live);
+  res.json(listLiveServices());
 });
 
+// POST /api/services/:id/start
+app.post("/api/services/:id/start", adminWriteLimiter, requireAuth, requireCsrfHeader, (req, res) => {
+  const svc = findService(req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
+  startService(svc);
+  res.json({ message: `Service "${svc.name}" started` });
+});
+
+// POST /api/services/:id/stop
+app.post("/api/services/:id/stop", adminWriteLimiter, requireAuth, requireCsrfHeader, (req, res) => {
+  const svc = findService(req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
+  stopService(svc);
+  res.json({ message: `Service "${svc.name}" stopped` });
+});
+
+// POST /api/services/:id/restart
+app.post("/api/services/:id/restart", adminWriteLimiter, requireAuth, requireCsrfHeader, (req, res) => {
+  const svc = findService(req.params.id);
+  if (!svc) return res.status(404).json({ error: "Service not found" });
+  restartService(svc);
+  res.json({ message: `Service "${svc.name}" restarted` });
+});
 // POST /api/admin/services/:id/start
 app.post("/api/admin/services/:id/start", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
-  const svc = SERVICES.find((s) => s.id === req.params.id);
+  const svc = findService(req.params.id);
   if (!svc) return res.status(404).json({ error: "Service not found" });
   if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
   svc.status = "running";
@@ -422,7 +569,7 @@ app.post("/api/admin/services/:id/start", adminWriteLimiter, requireAdmin, requi
 
 // POST /api/admin/services/:id/stop
 app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
-  const svc = SERVICES.find((s) => s.id === req.params.id);
+  const svc = findService(req.params.id);
   if (!svc) return res.status(404).json({ error: "Service not found" });
   if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
   svc.status = "stopped";
@@ -436,7 +583,7 @@ app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requir
 
 // POST /api/admin/services/:id/restart
 app.post("/api/admin/services/:id/restart", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
-  const svc = SERVICES.find((s) => s.id === req.params.id);
+  const svc = findService(req.params.id);
   if (!svc) return res.status(404).json({ error: "Service not found" });
   svc.status = "running";
   svc.pid = 3000 + Math.floor(Math.random() * 1000);
@@ -505,6 +652,11 @@ app.post("/api/admin/rename-user", adminWriteLimiter, requireAdmin, requireCsrfH
   } else {
     res.json({ message: `User "${oldUsername}" renamed to "${newUsername}"` });
   }
+});
+
+// JSON 404 fallback for unknown API routes (all HTTP methods)
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "API endpoint not found" });
 });
 
 // ---------------------------------------------------------------------------

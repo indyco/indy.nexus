@@ -156,6 +156,10 @@
 
       // Redirect based on role
       setTimeout(() => {
+        if (data.mustChangePassword) {
+          window.location.href = "/reset-password.html";
+          return;
+        }
         window.location.href = data.role === "admin" ? "/admin.html" : "/dashboard.html";
       }, 400);
 

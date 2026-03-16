@@ -708,6 +708,187 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   flex-shrink: 0;
 }
 
+/* ── Shared Services table UI ─────────────────────────────── */
+#services-table th,
+#services-table td {
+  padding: 0.45rem 0.5rem;
+}
+
+.svc-status { display: flex; align-items: center; gap: 0.35rem; }
+
+.svc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.svc-dot.running { background: var(--green); }
+.svc-dot.stopped { background: var(--overlay0); }
+.svc-dot.starting { background: var(--blue); animation: pulse 2s ease-in-out infinite; }
+
+.svc-actions {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.svc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: var(--border-width) solid var(--surface2);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--subtext0);
+  cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  padding: 0;
+  position: relative;
+}
+
+.svc-icon-btn:hover {
+  background: var(--surface0);
+  color: var(--text);
+  border-color: var(--overlay0);
+}
+
+.svc-icon-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
+
+.svc-icon-btn.start { color: var(--green); border-color: rgba(166,227,161,0.35); }
+.svc-icon-btn.stop { color: var(--red); border-color: rgba(243,139,168,0.35); }
+.svc-icon-btn.restart { color: var(--blue); border-color: rgba(137,180,250,0.35); }
+.svc-icon-btn.info { color: var(--yellow); border-color: rgba(249,226,175,0.35); }
+.svc-icon-btn.start:hover { color: var(--green); border-color: var(--green); }
+.svc-icon-btn.stop:hover { color: var(--red); border-color: var(--red); }
+.svc-icon-btn.restart:hover { color: var(--blue); border-color: var(--blue); }
+.svc-icon-btn.info:hover { color: var(--yellow); border-color: var(--yellow); }
+
+.svc-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.svc-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.svc-game-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  min-width: 1.8rem;
+  line-height: 1;
+  font-size: 1.25rem;
+  margin-right: 0;
+}
+
+.svc-name__text {
+  display: block;
+  line-height: 1.2;
+}
+
+.svc-players {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+}
+
+.svc-players .current { font-weight: 600; }
+.svc-players .max { color: var(--overlay0); }
+
+.info-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 90vw;
+  background: var(--mantle);
+  border-left: var(--border-width) solid var(--surface2);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.35);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  pointer-events: auto;
+}
+
+.info-sidebar.open {
+  transform: translateX(0);
+}
+
+.info-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: var(--border-width) solid var(--surface1);
+  background: var(--crust);
+  flex-shrink: 0;
+}
+
+.info-sidebar__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-sidebar__close {
+  background: none;
+  border: none;
+  color: var(--overlay0);
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.info-sidebar__close:hover { color: var(--text); background: var(--surface1); }
+
+.info-sidebar__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.82rem;
+}
+
+.info-grid dt {
+  color: var(--overlay1);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  padding-top: 0.15rem;
+}
+
+.info-grid dd { color: var(--text); }
+
 /* ── Stats row ────────────────────────────────────────────── */
 .stats-row {
   display: grid;
