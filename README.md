@@ -74,7 +74,7 @@ The user dashboard (`/dashboard.html`) shows all game servers with their current
 
 - Filter servers by **All** / **Online** / **Offline**
 - **Start** or **Stop** servers
-- Open a **Console** output pane for any server
+- Open a server-specific **Console** pane from the server row action button
 - View their account details under **My Account**
 
 ## Keyboard Navigation
@@ -109,6 +109,8 @@ The user dashboard (`/dashboard.html`) shows all game servers with their current
 | `q` | Logout |
 | `Esc` | Close dialogs |
 
+Use the `≡` action button on a server row to open that server's console panel.
+
 ### User Dashboard
 
 | Key | Action |
@@ -116,8 +118,7 @@ The user dashboard (`/dashboard.html`) shows all game servers with their current
 | `↑` / `k` | Move up in list |
 | `↓` / `j` | Move down in list |
 | `1` | Servers tab |
-| `2` | Console tab |
-| `3` | Account tab |
+| `2` | Account tab |
 | `?` | Toggle keyboard shortcut help |
 | `q` | Logout |
 | `Esc` | Close dialogs |

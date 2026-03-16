@@ -258,6 +258,28 @@ a:hover { color: var(--lavender); text-decoration: underline; }
 }
 
 .panel__title .icon { color: var(--accent); }
+.panel__title-spacer { flex: 1; }
+
+.panel__close {
+  background: none;
+  border: none;
+  color: var(--overlay0);
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.panel__close:hover {
+  color: var(--text);
+  background: var(--surface1);
+}
+
+.panel__close:focus-visible {
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
 
 .panel__body {
   padding: 0.75rem;
@@ -765,10 +787,12 @@ a:hover { color: var(--lavender); text-decoration: underline; }
 .svc-icon-btn.start { color: var(--green); border-color: rgba(166,227,161,0.35); }
 .svc-icon-btn.stop { color: var(--red); border-color: rgba(243,139,168,0.35); }
 .svc-icon-btn.restart { color: var(--blue); border-color: rgba(137,180,250,0.35); }
+.svc-icon-btn.console { color: var(--sky); border-color: rgba(137,220,235,0.35); }
 .svc-icon-btn.info { color: var(--yellow); border-color: rgba(249,226,175,0.35); }
 .svc-icon-btn.start:hover { color: var(--green); border-color: var(--green); }
 .svc-icon-btn.stop:hover { color: var(--red); border-color: var(--red); }
 .svc-icon-btn.restart:hover { color: var(--blue); border-color: var(--blue); }
+.svc-icon-btn.console:hover { color: var(--sky); border-color: var(--sky); }
 .svc-icon-btn.info:hover { color: var(--yellow); border-color: var(--yellow); }
 
 .svc-icon-btn:disabled {

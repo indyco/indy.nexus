@@ -123,6 +123,7 @@
       gameIcons = DEFAULT_GAME_ICONS,
       onData = null,
       onActionMessage = null,
+      onConsoleOpen = null,
     } = config || {};
 
     if (!apiBasePath) {
@@ -138,6 +139,7 @@
 
     function renderRows(rows) {
       if (!tbody) return;
+      const showConsoleButton = typeof onConsoleOpen === "function";
 
       if (rows.length === 0) {
         tbody.innerHTML = `
@@ -188,6 +190,10 @@
                 aria-label="Stop ${escapeHtml(service.name)}" ${isStopped ? "disabled" : ""}>■</button>
               <button class="svc-icon-btn restart" data-tooltip="Restart" data-action="restart" data-id="${service.id}"
                 aria-label="Restart ${escapeHtml(service.name)}">⟳</button>
+              ${showConsoleButton
+                ? `<button class="svc-icon-btn console" data-tooltip="Console" data-action="console" data-id="${service.id}"
+                aria-label="Open console for ${escapeHtml(service.name)}">≡</button>`
+                : ""}
               <button class="svc-icon-btn info" data-tooltip="More Info" data-action="info" data-id="${service.id}"
                 aria-label="Info ${escapeHtml(service.name)}">ℹ</button>
             </div>
@@ -213,12 +219,12 @@
       }
     }
 
-    async function act(id, action, successType) {
+    async function act(service, action, successType) {
       try {
-        const data = await apiFetch(`${apiBasePath}/${id}/${action}`, { method: "POST" });
+        const data = await apiFetch(`${apiBasePath}/${service.id}/${action}`, { method: "POST" });
         showAlert(alertEl, data.message, successType);
         if (typeof onActionMessage === "function") {
-          onActionMessage(data.message, successType);
+          onActionMessage(data.message, successType, service);
         }
         await refresh();
       } catch (err) {
@@ -235,6 +241,12 @@
         const { action, id } = button.dataset;
         const service = services.find((s) => s.id === id);
         if (!service) return;
+        if (action === "console") {
+          if (typeof onConsoleOpen === "function") {
+            onConsoleOpen(service);
+          }
+          return;
+        }
 
         if (action === "info") {
           showServerInfo(service, gameIcons);
@@ -242,7 +254,7 @@
         }
 
         if (action === "start") {
-          act(id, "start", "success");
+          act(service, "start", "success");
           return;
         }
 
@@ -251,7 +263,7 @@
             title: "Stop Server",
             message: "Are you sure you want to stop this game server? Active players will be disconnected.",
             confirmText: "■ Stop",
-            onConfirm: () => act(id, "stop", "warning"),
+            onConfirm: () => act(service, "stop", "warning"),
           });
           return;
         }
@@ -260,7 +272,7 @@
           title: "Restart Server",
           message: "This will restart the game server. Players may experience a brief disconnection.",
           confirmText: "⟳ Restart",
-          onConfirm: () => act(id, "restart", "success"),
+          onConfirm: () => act(service, "restart", "success"),
         });
       });
     }

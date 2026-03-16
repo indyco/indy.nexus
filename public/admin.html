@@ -354,6 +354,21 @@
       <section class="tab-pane" id="tab-services" aria-label="Game server services">
         <div class="content-area">
           <div id="servers-tab-mount"></div>
+          <div class="panel hidden" id="admin-server-console-panel">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">≡</span>
+              <span id="admin-server-console-title">Console</span>
+              <span class="panel__title-spacer"></span>
+              <button class="panel__close" id="admin-server-console-close" aria-label="Close console">✕</button>
+            </div>
+            <div class="panel__body">
+              <div class="log-output" id="admin-console-log" aria-live="polite" aria-label="Server console output">
+              </div>
+              <p class="text-xs text-muted mt-sm" id="admin-server-console-help">
+                Server actions and status updates appear here.
+              </p>
+            </div>
+          </div>
 
         </div>
       </section>
@@ -494,6 +509,78 @@
 
   let currentUser = null;
   let serversTab = null;
+  let selectedAdminConsoleServiceId = null;
+  const adminKnownServicesById = new Map();
+  const adminServiceActionLogs = new Map();
+  const MAX_ADMIN_CONSOLE_LINES = 200;
+
+  function formatLogTime(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  function logLevelFromType(type) {
+    return type === "warning" ? "warn" : type === "success" ? "ok" : "info";
+  }
+
+  function openAdminConsoleForService(service) {
+    if (!service?.id) return;
+    selectedAdminConsoleServiceId = service.id;
+    adminKnownServicesById.set(service.id, service);
+    renderAdminConsoleForService(service.id);
+  }
+
+  function closeAdminConsolePanel() {
+    const panel = document.getElementById("admin-server-console-panel");
+    if (!panel) return;
+    panel.classList.add("hidden");
+    selectedAdminConsoleServiceId = null;
+  }
+
+  function appendAdminServiceActionLog(service, message, type) {
+    if (!service?.id || !message) return;
+    const existing = adminServiceActionLogs.get(service.id) || [];
+    existing.push({
+      time: formatLogTime(new Date()),
+      level: logLevelFromType(type),
+      text: message,
+    });
+    if (existing.length > MAX_ADMIN_CONSOLE_LINES) {
+      existing.splice(0, existing.length - MAX_ADMIN_CONSOLE_LINES);
+    }
+    adminServiceActionLogs.set(service.id, existing);
+    adminKnownServicesById.set(service.id, service);
+
+    if (selectedAdminConsoleServiceId === service.id) {
+      renderAdminConsoleForService(service.id);
+    }
+  }
+
+  function renderAdminConsoleForService(serviceId) {
+    const panel = document.getElementById("admin-server-console-panel");
+    const title = document.getElementById("admin-server-console-title");
+    const hint = document.getElementById("admin-server-console-help");
+    const logEl = document.getElementById("admin-console-log");
+    if (!panel || !title || !hint || !logEl) return;
+
+    const service = adminKnownServicesById.get(serviceId);
+    const serviceName = service?.name || "Unknown server";
+    const entries = adminServiceActionLogs.get(serviceId) || [];
+
+    title.textContent = `Console — ${serviceName}`;
+    hint.textContent = `Showing recent events for ${serviceName}.`;
+    panel.classList.remove("hidden");
+
+    if (entries.length === 0) {
+      logEl.innerHTML = `<div><span class="log-time">[--:--:--]</span> <span class="log-info">No events yet.</span></div>`;
+      return;
+    }
+
+    logEl.innerHTML = entries.map((entry) =>
+      `<div><span class="log-time">[${entry.time}]</span> <span class="log-${entry.level}">${escapeHtml(entry.text)}</span></div>`
+    ).join("");
+    logEl.scrollTop = logEl.scrollHeight;
+  }
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   (async () => {
@@ -548,6 +635,17 @@
     serversTab = initServersTab({
       apiBasePath: "/api/admin/services",
       countElementId: "services-count",
+      onData: (services) => {
+        adminKnownServicesById.clear();
+        services.forEach((service) => adminKnownServicesById.set(service.id, service));
+        if (selectedAdminConsoleServiceId && adminKnownServicesById.has(selectedAdminConsoleServiceId)) {
+          renderAdminConsoleForService(selectedAdminConsoleServiceId);
+        }
+      },
+      onActionMessage: (message, type, service) => {
+        appendAdminServiceActionLog(service, message, type);
+      },
+      onConsoleOpen: (service) => openAdminConsoleForService(service),
     });
     setInterval(pollSystem, 5000);
     
@@ -576,6 +674,7 @@
     document.getElementById("help-close").addEventListener("click", closeHelp);
     document.getElementById("help-close-btn").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
+    document.getElementById("admin-server-console-close").addEventListener("click", closeAdminConsolePanel);
 
     // Change password form
     document.getElementById("change-password-form").addEventListener("submit", onChangePassword);

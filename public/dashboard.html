@@ -54,10 +54,6 @@
         <span>Servers</span>
         <span class="count" id="sidebar-server-count" aria-label="running servers">0</span>
       </div>
-      <div class="sidebar__item focus-ring" tabindex="0" data-nav-item data-tab="logs" role="button" aria-pressed="false">
-        <span class="icon" aria-hidden="true">≡</span>
-        <span>Console</span>
-      </div>
 
       <hr class="sidebar__divider">
       <div class="sidebar__section-title">Account</div>
@@ -75,27 +71,23 @@
       <section class="tab-pane active" id="tab-servers" aria-label="Game servers">
         <div class="content-area">
           <div id="servers-tab-mount"></div>
-        </div>
-
-      </section>
-
-      <!-- ── Tab: Console ──────────────────────────────── -->
-      <section class="tab-pane" id="tab-logs" aria-label="Console output">
-        <div class="content-area">
-          <div class="panel">
+          <div class="panel hidden" id="server-console-panel">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">≡</span>
-              Console Output
+              <span id="server-console-title">Console</span>
+              <span class="panel__title-spacer"></span>
+              <button class="panel__close" id="server-console-close" aria-label="Close console">✕</button>
             </div>
             <div class="panel__body">
-              <div class="log-output" id="console-log" aria-live="polite" aria-label="Server console">
+              <div class="log-output" id="console-log" aria-live="polite" aria-label="Server console output">
               </div>
-              <p class="text-xs text-muted mt-sm">
+              <p class="text-xs text-muted mt-sm" id="server-console-help">
                 Server actions and status updates appear here.
               </p>
             </div>
           </div>
         </div>
+
       </section>
 
       <!-- ── Tab: Account ──────────────────────────────── -->
@@ -163,8 +155,7 @@
           <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Move down in list</td></tr>
           <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Move up in list</td></tr>
           <tr><td><kbd>1</kbd></td><td>Go to Servers tab</td></tr>
-          <tr><td><kbd>2</kbd></td><td>Go to Console tab</td></tr>
-          <tr><td><kbd>3</kbd></td><td>Go to Account tab</td></tr>
+          <tr><td><kbd>2</kbd></td><td>Go to Account tab</td></tr>
           <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>Close dialogs</td></tr>
           <tr><td><kbd>q</kbd></td><td>Logout</td></tr>
@@ -185,6 +176,78 @@
   // ── Auth guard ──────────────────────────────────────────────────────────────
   let currentUser = null;
   let serversTab = null;
+  let selectedConsoleServiceId = null;
+  const knownServicesById = new Map();
+  const serviceActionLogs = new Map();
+  const MAX_CONSOLE_LINES = 200;
+
+  function formatLogTime(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  function logLevelFromType(type) {
+    return type === "warning" ? "warn" : type === "success" ? "ok" : "info";
+  }
+
+  function openConsoleForService(service) {
+    if (!service?.id) return;
+    selectedConsoleServiceId = service.id;
+    knownServicesById.set(service.id, service);
+    renderConsoleForService(service.id);
+  }
+
+  function closeConsolePanel() {
+    const panel = document.getElementById("server-console-panel");
+    if (!panel) return;
+    panel.classList.add("hidden");
+    selectedConsoleServiceId = null;
+  }
+
+  function appendServiceActionLog(service, message, type) {
+    if (!service?.id || !message) return;
+    const existing = serviceActionLogs.get(service.id) || [];
+    existing.push({
+      time: formatLogTime(new Date()),
+      level: logLevelFromType(type),
+      text: message,
+    });
+    if (existing.length > MAX_CONSOLE_LINES) {
+      existing.splice(0, existing.length - MAX_CONSOLE_LINES);
+    }
+    serviceActionLogs.set(service.id, existing);
+    knownServicesById.set(service.id, service);
+
+    if (selectedConsoleServiceId === service.id) {
+      renderConsoleForService(service.id);
+    }
+  }
+
+  function renderConsoleForService(serviceId) {
+    const panel = document.getElementById("server-console-panel");
+    const title = document.getElementById("server-console-title");
+    const hint = document.getElementById("server-console-help");
+    const logEl = document.getElementById("console-log");
+    if (!panel || !title || !hint || !logEl) return;
+
+    const service = knownServicesById.get(serviceId);
+    const serviceName = service?.name || "Unknown server";
+    const entries = serviceActionLogs.get(serviceId) || [];
+
+    title.textContent = `Console — ${serviceName}`;
+    hint.textContent = `Showing recent events for ${serviceName}.`;
+    panel.classList.remove("hidden");
+
+    if (entries.length === 0) {
+      logEl.innerHTML = `<div><span class="log-time">[--:--:--]</span> <span class="log-info">No events yet.</span></div>`;
+      return;
+    }
+
+    logEl.innerHTML = entries.map((entry) =>
+      `<div><span class="log-time">[${entry.time}]</span> <span class="log-${entry.level}">${escapeHtml(entry.text)}</span></div>`
+    ).join("");
+    logEl.scrollTop = logEl.scrollHeight;
+  }
 
   (async () => {
     currentUser = await requireAuth("/login.html");
@@ -211,13 +274,18 @@
       apiBasePath: "/api/services",
       countElementId: "sidebar-server-count",
       onData: (services, running) => {
+        knownServicesById.clear();
+        services.forEach((service) => knownServicesById.set(service.id, service));
+        if (selectedConsoleServiceId && knownServicesById.has(selectedConsoleServiceId)) {
+          renderConsoleForService(selectedConsoleServiceId);
+        }
         document.getElementById("statusbar-server-status").textContent =
           `${running}/${services.length} servers online`;
       },
-      onActionMessage: (message, type) => {
-        const level = type === "warning" ? "warn" : type === "success" ? "ok" : "info";
-        appendLog(document.getElementById("console-log"), level, message);
+      onActionMessage: (message, type, service) => {
+        appendServiceActionLog(service, message, type);
       },
+      onConsoleOpen: (service) => openConsoleForService(service),
     });
 
     // Sidebar navigation
@@ -242,14 +310,14 @@
     document.getElementById("help-close").addEventListener("click", closeHelp);
     document.getElementById("help-close-btn").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
+    document.getElementById("server-console-close").addEventListener("click", closeConsolePanel);
 
 
     // Global shortcuts
     registerGlobalShortcuts({
       "?": () => helpDialog.classList.toggle("hidden"),
       "1": () => switchTab("servers"),
-      "2": () => switchTab("logs"),
-      "3": () => switchTab("account"),
+      "2": () => switchTab("account"),
       "q": () => logout(),
       "Escape": () => helpDialog.classList.add("hidden"),
     });
