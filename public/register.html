@@ -91,9 +91,10 @@
                 aria-describedby="password-hint"
                 placeholder="••••••••"
                 minlength="8"
+                maxlength="128"
               >
               <span id="password-hint" class="text-xs text-muted" style="margin-top:0.2rem">
-                At least 8 characters.
+                8-128 characters.
               </span>
             </div>
 
@@ -110,6 +111,7 @@
                 required
                 aria-required="true"
                 placeholder="••••••••"
+                maxlength="128"
               >
             </div>
 
@@ -184,6 +186,11 @@
     }
     if (password.length < 8) {
       showAlert(alertArea, "Password must be at least 8 characters.", "error");
+      form.password.focus();
+      return;
+    }
+    if (password.length > 128) {
+      showAlert(alertArea, "Password must be 128 characters or fewer.", "error");
       form.password.focus();
       return;
     }

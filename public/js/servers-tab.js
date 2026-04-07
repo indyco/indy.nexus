@@ -8,6 +8,23 @@
     ARK: "🦕",
     default: "🖥",
   };
+  const SERVICE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/i;
+  const KNOWN_STATUSES = new Set(["running", "stopped", "starting"]);
+
+  function normalizeServiceStatus(status) {
+    const value = String(status || "").toLowerCase();
+    return KNOWN_STATUSES.has(value) ? value : "unknown";
+  }
+
+  function normalizeServiceId(id) {
+    const value = String(id || "").trim();
+    return SERVICE_ID_PATTERN.test(value) ? value : "";
+  }
+
+  function toSafeInteger(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? Math.trunc(num) : fallback;
+  }
 
   function formatUptime(seconds) {
     const d = Math.floor(seconds / 86400);
@@ -29,27 +46,37 @@
       document.body.appendChild(panel);
     }
 
+    const status = normalizeServiceStatus(service?.status);
+    const safeName = String(service?.name || "Unknown server");
+    const safeGame = String(service?.game || "Unknown");
+    const players = Math.max(0, toSafeInteger(service?.players, 0));
+    const maxPlayers = Math.max(0, toSafeInteger(service?.maxPlayers, 0));
+    const port = Math.max(0, toSafeInteger(service?.port, 0));
+    const pid = service?.pid == null ? null : toSafeInteger(service?.pid, 0);
+    const cpuPercent = Math.max(0, Math.min(100, toSafeInteger(service?.cpuPercent, 0)));
+    const ramMb = Math.max(0, toSafeInteger(service?.ramMb, 0));
+    const uptimeSec = Math.max(0, toSafeInteger(service?.uptimeSec, 0));
     const statusLabel = {
       running: `<span style="color:var(--green)">● running</span>`,
       stopped: `<span style="color:var(--overlay0)">● stopped</span>`,
       starting: `<span style="color:var(--blue)">● starting</span>`,
-    }[service.status] || escapeHtml(service.status);
+    }[status] || `<span style="color:var(--overlay0)">● ${escapeHtml(status)}</span>`;
 
     panel.innerHTML = `
       <div class="info-sidebar__header">
-        <span class="info-sidebar__title">ℹ ${escapeHtml(service.name)}</span>
+        <span class="info-sidebar__title">ℹ ${escapeHtml(safeName)}</span>
         <button class="info-sidebar__close" id="info-sidebar-close" aria-label="Close">✕</button>
       </div>
       <div class="info-sidebar__body">
         <dl class="info-grid">
-          <dt>Game</dt>      <dd>${gameIcons[service.game] || gameIcons.default} ${escapeHtml(service.game)}</dd>
+          <dt>Game</dt>      <dd>${gameIcons[safeGame] || gameIcons.default} ${escapeHtml(safeGame)}</dd>
           <dt>Status</dt>    <dd>${statusLabel}</dd>
-          <dt>Players</dt>   <dd>${service.status === "stopped" ? "—" : service.players + " / " + service.maxPlayers}</dd>
-          <dt>Port</dt>      <dd>${service.port}</dd>
-          <dt>PID</dt>       <dd>${service.pid ?? "—"}</dd>
-          <dt>CPU</dt>       <dd>${service.status === "stopped" ? "—" : service.cpuPercent + "%"}</dd>
-          <dt>RAM</dt>       <dd>${service.status === "stopped" ? "—" : service.ramMb + " MB"}</dd>
-          <dt>Uptime</dt>    <dd>${service.uptimeSec > 0 ? formatUptime(service.uptimeSec) : "—"}</dd>
+          <dt>Players</dt>   <dd>${status === "stopped" ? "—" : `${players} / ${maxPlayers}`}</dd>
+          <dt>Port</dt>      <dd>${port}</dd>
+          <dt>PID</dt>       <dd>${pid ?? "—"}</dd>
+          <dt>CPU</dt>       <dd>${status === "stopped" ? "—" : `${cpuPercent}%`}</dd>
+          <dt>RAM</dt>       <dd>${status === "stopped" ? "—" : `${ramMb} MB`}</dd>
+          <dt>Uptime</dt>    <dd>${uptimeSec > 0 ? formatUptime(uptimeSec) : "—"}</dd>
         </dl>
       </div>`;
 
@@ -152,50 +179,62 @@
       }
 
       tbody.innerHTML = rows.map((service) => {
-        const isRunning = service.status === "running";
-        const isStopped = service.status === "stopped";
+        const serviceId = normalizeServiceId(service?.id);
+        const safeName = String(service?.name || "Unknown service");
+        const safeGame = String(service?.game || "Unknown");
+        const status = normalizeServiceStatus(service?.status);
+        const isRunning = status === "running";
+        const isStopped = status === "stopped";
+        const players = Math.max(0, toSafeInteger(service?.players, 0));
+        const maxPlayers = Math.max(0, toSafeInteger(service?.maxPlayers, 0));
+        const cpuPercent = Math.max(0, Math.min(100, toSafeInteger(service?.cpuPercent, 0)));
+        const ramMb = Math.max(0, toSafeInteger(service?.ramMb, 0));
+        const uptimeSec = Math.max(0, toSafeInteger(service?.uptimeSec, 0));
+        const pid = service?.pid == null ? "—" : toSafeInteger(service?.pid, 0);
+        const port = Math.max(0, toSafeInteger(service?.port, 0));
+        const disabledForInvalidId = serviceId ? "" : "disabled";
 
         return `
-        <tr data-nav-item tabindex="0" aria-label="${escapeHtml(service.name)} — ${escapeHtml(service.status)}">
+        <tr data-nav-item tabindex="0" aria-label="${escapeHtml(safeName)} — ${escapeHtml(status)}">
           <td>
             <div class="svc-name">
-              <span class="svc-game-icon">${gameIcons[service.game] || gameIcons.default}</span>
-              <strong class="svc-name__text">${escapeHtml(service.name)}</strong>
+              <span class="svc-game-icon">${gameIcons[safeGame] || gameIcons.default}</span>
+              <strong class="svc-name__text">${escapeHtml(safeName)}</strong>
             </div>
           </td>
-          <td>${escapeHtml(service.game)}</td>
+          <td>${escapeHtml(safeGame)}</td>
           <td>
             <span class="svc-status">
-              <span class="svc-dot ${service.status}"></span>
-              ${escapeHtml(service.status)}
+              <span class="svc-dot ${status}"></span>
+              ${escapeHtml(status)}
             </span>
           </td>
           <td>
             <span class="svc-players">
               ${isStopped
                 ? '<span class="text-muted">—</span>'
-                : `<span class="current">${service.players}</span><span class="max">/${service.maxPlayers}</span>`}
+                : `<span class="current">${players}</span><span class="max">/${maxPlayers}</span>`}
             </span>
           </td>
-          <td class="text-muted">${service.pid ?? "—"}</td>
-          <td>${isStopped ? "—" : service.cpuPercent + "%"}</td>
-          <td>${isStopped ? "—" : service.ramMb + " MB"}</td>
-          <td class="text-muted">${service.uptimeSec > 0 ? formatUptime(service.uptimeSec) : "—"}</td>
-          <td>${service.port}</td>
+          <td class="text-muted">${pid}</td>
+          <td>${isStopped ? "—" : `${cpuPercent}%`}</td>
+          <td>${isStopped ? "—" : `${ramMb} MB`}</td>
+          <td class="text-muted">${uptimeSec > 0 ? formatUptime(uptimeSec) : "—"}</td>
+          <td>${port}</td>
           <td>
             <div class="svc-actions">
-              <button class="svc-icon-btn start" data-tooltip="Start" data-action="start" data-id="${service.id}"
-                aria-label="Start ${escapeHtml(service.name)}" ${isRunning ? "disabled" : ""}>▶</button>
-              <button class="svc-icon-btn stop" data-tooltip="Stop" data-action="stop" data-id="${service.id}"
-                aria-label="Stop ${escapeHtml(service.name)}" ${isStopped ? "disabled" : ""}>■</button>
-              <button class="svc-icon-btn restart" data-tooltip="Restart" data-action="restart" data-id="${service.id}"
-                aria-label="Restart ${escapeHtml(service.name)}">⟳</button>
+              <button class="svc-icon-btn start" data-tooltip="Start" data-action="start" data-id="${escapeHtml(serviceId)}"
+                aria-label="Start ${escapeHtml(safeName)}" ${isRunning ? "disabled" : disabledForInvalidId}>▶</button>
+              <button class="svc-icon-btn stop" data-tooltip="Stop" data-action="stop" data-id="${escapeHtml(serviceId)}"
+                aria-label="Stop ${escapeHtml(safeName)}" ${isStopped ? "disabled" : disabledForInvalidId}>■</button>
+              <button class="svc-icon-btn restart" data-tooltip="Restart" data-action="restart" data-id="${escapeHtml(serviceId)}"
+                aria-label="Restart ${escapeHtml(safeName)}" ${disabledForInvalidId}>⟳</button>
               ${showConsoleButton
-                ? `<button class="svc-icon-btn console" data-tooltip="Console" data-action="console" data-id="${service.id}"
-                aria-label="Open console for ${escapeHtml(service.name)}">≡</button>`
+                ? `<button class="svc-icon-btn console" data-tooltip="Console" data-action="console" data-id="${escapeHtml(serviceId)}"
+                aria-label="Open console for ${escapeHtml(safeName)}" ${disabledForInvalidId}>≡</button>`
                 : ""}
-              <button class="svc-icon-btn info" data-tooltip="More Info" data-action="info" data-id="${service.id}"
-                aria-label="Info ${escapeHtml(service.name)}">ℹ</button>
+              <button class="svc-icon-btn info" data-tooltip="More Info" data-action="info" data-id="${escapeHtml(serviceId)}"
+                aria-label="Info ${escapeHtml(safeName)}" ${disabledForInvalidId}>ℹ</button>
             </div>
           </td>
         </tr>`;
@@ -203,7 +242,7 @@
     }
 
     function updateCounts(rows) {
-      const running = rows.filter((s) => s.status === "running").length;
+      const running = rows.filter((s) => normalizeServiceStatus(s?.status) === "running").length;
       if (countEl) countEl.textContent = running;
       if (typeof onData === "function") onData(rows, running);
     }
@@ -220,8 +259,13 @@
     }
 
     async function act(service, action, successType) {
+      const serviceId = normalizeServiceId(service?.id);
+      if (!serviceId) {
+        showAlert(alertEl, "Invalid service id.", "error");
+        return;
+      }
       try {
-        const data = await apiFetch(`${apiBasePath}/${service.id}/${action}`, { method: "POST" });
+        const data = await apiFetch(`${apiBasePath}/${serviceId}/${action}`, { method: "POST" });
         showAlert(alertEl, data.message, successType);
         if (typeof onActionMessage === "function") {
           onActionMessage(data.message, successType, service);
@@ -239,7 +283,7 @@
         if (!button) return;
 
         const { action, id } = button.dataset;
-        const service = services.find((s) => s.id === id);
+        const service = services.find((s) => normalizeServiceId(s?.id) === id);
         if (!service) return;
         if (action === "console") {
           if (typeof onConsoleOpen === "function") {

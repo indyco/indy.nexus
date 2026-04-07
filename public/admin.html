@@ -376,8 +376,36 @@
       <!-- ── Tab: Settings ─────────────────────────────── -->
       <section class="tab-pane" id="tab-settings" aria-label="Admin settings">
         <div class="content-area">
+          <div class="panel" style="max-width:440px; margin-bottom:1rem">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">⚙</span>
+              Settings Actions
+            </div>
+            <div class="panel__body">
+              <div class="flex gap-sm" style="flex-wrap:wrap">
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  id="toggle-change-password-panel"
+                  aria-controls="change-password-panel"
+                  aria-expanded="false"
+                >
+                  🔑 Change Admin Password
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  id="toggle-rename-user-panel"
+                  aria-controls="rename-user-panel"
+                  aria-expanded="false"
+                >
+                  👤 Rename User
+                </button>
+              </div>
+            </div>
+          </div>
 
-          <div class="panel" style="max-width:440px; margin-bottom: 1.5rem">
+          <div class="panel hidden" id="change-password-panel" style="max-width:440px; margin-bottom:1.5rem">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">🔑</span>
               Change Admin Password
@@ -397,13 +425,13 @@
                     <label for="new-password">New Password <span class="req">*</span></label>
                     <input type="password" id="new-password" class="input" required
                       aria-required="true" autocomplete="new-password" placeholder="••••••••"
-                      aria-describedby="new-pass-hint">
-                    <span id="new-pass-hint" class="text-xs text-muted" style="margin-top:.2rem">At least 8 characters.</span>
+                      aria-describedby="new-pass-hint" minlength="8" maxlength="128">
+                    <span id="new-pass-hint" class="text-xs text-muted" style="margin-top:.2rem">8-128 characters.</span>
                   </div>
                   <div class="field">
                     <label for="confirm-new-password">Confirm New Password <span class="req">*</span></label>
                     <input type="password" id="confirm-new-password" class="input" required
-                      aria-required="true" autocomplete="new-password" placeholder="••••••••">
+                      aria-required="true" autocomplete="new-password" placeholder="••••••••" minlength="8" maxlength="128">
                   </div>
                   <button type="submit" class="btn btn--primary" id="change-pass-btn">
                     <span class="btn-text">🔑 Change Password</span>
@@ -414,7 +442,7 @@
             </div>
           </div>
 
-          <div class="panel" style="max-width:440px">
+          <div class="panel hidden" id="rename-user-panel" style="max-width:440px">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">👤</span>
               Rename User
@@ -435,7 +463,7 @@
                   <div class="field">
                     <label for="new-username">New Username <span class="req">*</span></label>
                     <input type="text" id="new-username" class="input" required
-                      aria-required="true" placeholder="new-username"
+                      aria-required="true" placeholder="new-username" maxlength="32" pattern="[a-zA-Z0-9_-]+"
                       aria-describedby="username-hint">
                     <span id="username-hint" class="text-xs text-muted" style="margin-top:.2rem">3-32 characters, letters, numbers, _ and - only.</span>
                   </div>
@@ -513,6 +541,11 @@
   const adminKnownServicesById = new Map();
   const adminServiceActionLogs = new Map();
   const MAX_ADMIN_CONSOLE_LINES = 200;
+  const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  function isValidUserId(value) {
+    return USER_ID_PATTERN.test(String(value || ""));
+  }
 
   function formatLogTime(date) {
     const pad = (n) => String(n).padStart(2, "0");
@@ -682,6 +715,8 @@
     // Rename user form
     document.getElementById("rename-user-form").addEventListener("submit", onRenameUser);
     loadAllUsersForRename();
+    initSettingsActionButtons();
+    bindUserActionButtons();
 
     // Global shortcuts
     registerGlobalShortcuts({
@@ -698,6 +733,10 @@
   }
 
   async function resetUserPassword(id) {
+    if (!isValidUserId(id)) {
+      showAlert(document.getElementById("all-alert"), "Invalid user id.", "error");
+      return;
+    }
     showConfirmDialog({
       title: "Reset Password",
       message: "Generate a new temporary 8-character password and require this user to change it on next login?",
@@ -717,6 +756,75 @@
         }
       },
     });
+  }
+
+  function initSettingsActionButtons() {
+    const passwordToggle = document.getElementById("toggle-change-password-panel");
+    const renameToggle = document.getElementById("toggle-rename-user-panel");
+    const passwordPanel = document.getElementById("change-password-panel");
+    const renamePanel = document.getElementById("rename-user-panel");
+
+    if (!passwordToggle || !renameToggle || !passwordPanel || !renamePanel) return;
+
+    const setActivePanel = (panelName) => {
+      const showPassword = panelName === "password";
+      const showRename = panelName === "rename";
+
+      passwordPanel.classList.toggle("hidden", !showPassword);
+      renamePanel.classList.toggle("hidden", !showRename);
+
+      passwordToggle.setAttribute("aria-expanded", showPassword ? "true" : "false");
+      renameToggle.setAttribute("aria-expanded", showRename ? "true" : "false");
+
+      passwordToggle.classList.toggle("btn--primary", showPassword);
+      passwordToggle.classList.toggle("btn--secondary", !showPassword);
+      renameToggle.classList.toggle("btn--primary", showRename);
+      renameToggle.classList.toggle("btn--secondary", !showRename);
+    };
+
+    passwordToggle.addEventListener("click", () => {
+      const isOpen = !passwordPanel.classList.contains("hidden");
+      setActivePanel(isOpen ? null : "password");
+    });
+
+    renameToggle.addEventListener("click", () => {
+      const isOpen = !renamePanel.classList.contains("hidden");
+      setActivePanel(isOpen ? null : "rename");
+    });
+
+    setActivePanel(null);
+  }
+
+  function bindUserActionButtons() {
+    const handleClick = (event) => {
+      const actionBtn = event.target.closest("button[data-user-action][data-user-id]");
+      if (!actionBtn) return;
+
+      const { userAction, userId } = actionBtn.dataset;
+      if (!isValidUserId(userId)) {
+        showAlert(document.getElementById("all-alert"), "Invalid user id.", "error");
+        return;
+      }
+
+      if (userAction === "approve") {
+        approveUser(userId);
+        return;
+      }
+      if (userAction === "deny") {
+        denyUser(userId);
+        return;
+      }
+      if (userAction === "revoke") {
+        revokeUser(userId);
+        return;
+      }
+      if (userAction === "reset-password") {
+        resetUserPassword(userId);
+      }
+    };
+
+    document.getElementById("pending-table")?.addEventListener("click", handleClick);
+    document.getElementById("all-table")?.addEventListener("click", handleClick);
   }
 
   function switchTab(tabName) {
@@ -765,21 +873,27 @@
       return;
     }
 
-    tbody.innerHTML = users.map((u) => `
+    tbody.innerHTML = users.map((u) => {
+      const userId = String(u.id || "");
+      const safeId = isValidUserId(userId) ? escapeHtml(userId) : "";
+      const hasValidUserId = safeId.length > 0;
+      const disabledAttr = hasValidUserId ? "" : "disabled";
+      return `
       <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — pending">
         <td><strong>${escapeHtml(u.username)}</strong></td>
         <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
         <td><span class="badge badge--pending">⏳ Pending</span></td>
         <td>
           <div class="actions-cell">
-            <button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')"
-              aria-label="Approve ${escapeHtml(u.username)}">✔ Approve</button>
-            <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')"
-              aria-label="Deny ${escapeHtml(u.username)}">✖ Deny</button>
+            <button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}"
+              aria-label="Approve ${escapeHtml(u.username)}" ${disabledAttr}>✔ Approve</button>
+            <button class="btn btn--danger btn--sm" data-user-action="deny" data-user-id="${safeId}"
+              aria-label="Deny ${escapeHtml(u.username)}" ${disabledAttr}>✖ Deny</button>
           </div>
         </td>
       </tr>
-    `).join("");
+    `;
+    }).join("");
 
     enableListNav(document.getElementById("pending-table"), "[data-nav-item]");
   }
@@ -808,29 +922,29 @@
             denied:   `<span class="badge badge--denied">✖ Denied</span>`,
           }[u.status] || `<span class="badge">${escapeHtml(u.status)}</span>`;
 
-      const tempPasswordNote = !isAdmin && u.temporaryPassword
-        ? `<div class="text-xs" style="margin-top:0.35rem; color:var(--yellow)">
-             Temp password: <code>${escapeHtml(u.temporaryPassword)}</code>
-           </div>`
-        : "";
+
+      const userId = String(u.id || "");
+      const safeId = isValidUserId(userId) ? escapeHtml(userId) : "";
+      const hasValidUserId = safeId.length > 0;
+      const disabledAttr = hasValidUserId ? "" : "disabled";
 
       let actions = '';
       if (!isAdmin) {
-        const resetAction = `<button class="btn btn--secondary btn--sm" onclick="resetUserPassword('${u.id}')">🔐 Reset Password</button>`;
+        const resetAction = `<button class="btn btn--secondary btn--sm" data-user-action="reset-password" data-user-id="${safeId}" ${disabledAttr}>🔐 Reset Password</button>`;
         actions = u.status === "pending"
-          ? `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>
-             <button class="btn btn--danger btn--sm" onclick="denyUser('${u.id}')">✖ Deny</button>`
+          ? `<button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}" ${disabledAttr}>✔ Approve</button>
+             <button class="btn btn--danger btn--sm" data-user-action="deny" data-user-id="${safeId}" ${disabledAttr}>✖ Deny</button>`
           : u.status === "approved"
-          ? `<button class="btn btn--ghost btn--sm" onclick="revokeUser('${u.id}')">↩ Revoke</button>
+          ? `<button class="btn btn--ghost btn--sm" data-user-action="revoke" data-user-id="${safeId}" ${disabledAttr}>↩ Revoke</button>
              ${resetAction}`
-          : `<button class="btn btn--success btn--sm" onclick="approveUser('${u.id}')">✔ Approve</button>`;
+          : `<button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}" ${disabledAttr}>✔ Approve</button>`;
       }
 
       return `
         <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${isAdmin ? 'admin' : u.status}">
           <td><strong>${escapeHtml(u.username)}</strong></td>
           <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
-          <td>${statusBadge}${tempPasswordNote}</td>
+          <td>${statusBadge}</td>
           <td><div class="actions-cell">${actions}</div></td>
         </tr>`;
     }).join("");
@@ -841,6 +955,10 @@
   // ── User actions ────────────────────────────────────────────────────────────
 
   async function approveUser(id) {
+    if (!isValidUserId(id)) {
+      showAlert(document.getElementById("pending-alert"), "Invalid user id.", "error");
+      return;
+    }
     try {
       const data = await apiFetch(`/api/admin/users/${id}/approve`, { method: "POST" });
       showAlert(document.getElementById("pending-alert"), data.message, "success");
@@ -852,6 +970,10 @@
   }
 
   async function denyUser(id) {
+    if (!isValidUserId(id)) {
+      showAlert(document.getElementById("pending-alert"), "Invalid user id.", "error");
+      return;
+    }
     showConfirmDialog({
       title: "Deny User",
       message: "Are you sure you want to deny this user's access request?",
@@ -870,6 +992,10 @@
   }
 
   async function revokeUser(id) {
+    if (!isValidUserId(id)) {
+      showAlert(document.getElementById("all-alert"), "Invalid user id.", "error");
+      return;
+    }
     showConfirmDialog({
       title: "Revoke Access",
       message: "This will revert the user to pending status. They will need re-approval to log in.",
@@ -962,6 +1088,10 @@
       showAlert(alertEl, "New password must be at least 8 characters.", "error");
       return;
     }
+    if (next.length > 128) {
+      showAlert(alertEl, "New password must be 128 characters or fewer.", "error");
+      return;
+    }
 
     setButtonLoading(btn, true);
     try {
@@ -984,24 +1114,26 @@
     try {
       const users = await apiFetch("/api/admin/all-users");
       const select = document.getElementById("user-select");
+      const safeUsers = users.filter((u) => isValidUserId(u.id));
       
-      if (users.length === 0) {
+      if (safeUsers.length === 0) {
         select.innerHTML = '<option value="">No users found</option>';
         return;
       }
       
       // Sort users: admins first, then by username
-      users.sort((a, b) => {
+      safeUsers.sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
         return a.username.localeCompare(b.username);
       });
       
       select.innerHTML = '<option value="">Select a user...</option>' + 
-        users.map(u => {
+        safeUsers.map(u => {
           const roleTag = u.role === 'admin' ? ' (Admin)' : '';
-          const statusTag = u.status !== 'approved' ? ` [${u.status}]` : '';
-          return `<option value="${u.id}" data-username="${escapeHtml(u.username)}">
+          const safeStatus = escapeHtml(String(u.status || ""));
+          const statusTag = u.status !== 'approved' ? ` [${safeStatus}]` : '';
+          return `<option value="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">
             ${escapeHtml(u.username)}${roleTag}${statusTag}
           </option>`;
         }).join("");
@@ -1023,6 +1155,10 @@
 
     if (!userId) {
       showAlert(alertEl, "Please select a user to rename.", "error");
+      return;
+    }
+    if (!isValidUserId(userId)) {
+      showAlert(alertEl, "Invalid user id.", "error");
       return;
     }
     if (!newUsername) {

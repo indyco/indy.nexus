@@ -18,8 +18,11 @@ A TUI-styled game server hosting portal — dark-themed, keyboard & mouse naviga
 # Install dependencies
 npm install
 
-# Start the server (default: http://localhost:3000)
+# Start the server in live mode (default, real integrations pending)
 npm start
+
+# Start the server in test mode with dummy service data
+npm run start:test
 
 # Development mode (auto-restart on file changes)
 npm run dev
@@ -30,7 +33,7 @@ npm run dev
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `PORT` | `3000` | HTTP port to listen on |
-| `SESSION_SECRET` | *(dev default)* | Session signing secret — **change in production** |
+| `SESSION_SECRET` | *(required)* | Session signing secret (minimum 32 characters) |
 | `NODE_ENV` | `development` | Set to `production` to enable secure (HTTPS-only) session cookie |
 
 ## First Login
