@@ -1,0 +1,18 @@
+[
+  {
+    "id": "mc-1",
+    "vmid": 101,
+    "name": "minecraft-survival",
+    "game": "Minecraft",
+    "port": 25565,
+    "maxPlayers": 20
+  },
+  {
+    "id": "val-1",
+    "vmid": 102,
+    "name": "valheim-dedicated",
+    "game": "Valheim",
+    "port": 2456,
+    "maxPlayers": 10
+  }
+]

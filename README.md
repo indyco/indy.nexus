@@ -18,10 +18,10 @@ A TUI-styled game server hosting portal — dark-themed, keyboard & mouse naviga
 # Install dependencies
 npm install
 
-# Start the server in live mode (default, real integrations pending)
+# Start the server in live mode (requires Proxmox env vars — see Configuration)
 npm start
 
-# Start the server in test mode with dummy service data
+# Start the server in test mode with dummy service data (no Proxmox needed)
 npm run start:test
 
 # Development mode (auto-restart on file changes)
@@ -35,6 +35,37 @@ npm run dev
 | `PORT` | `3000` | HTTP port to listen on |
 | `SESSION_SECRET` | *(required)* | Session signing secret (minimum 32 characters) |
 | `NODE_ENV` | `development` | Set to `production` to enable secure (HTTPS-only) session cookie |
+| `PROXMOX_HOST` | *(required in live mode)* | Proxmox VE API URL, e.g. `https://192.168.1.100:8006` |
+| `PROXMOX_NODE` | *(required in live mode)* | Proxmox node name (e.g. `pve`) |
+| `PROXMOX_TOKEN_ID` | *(required in live mode)* | API token ID (e.g. `root@pam!indynexus`) |
+| `PROXMOX_TOKEN_SECRET` | *(required in live mode)* | API token secret UUID |
+
+Proxmox variables are **not required** when running in `--test` mode.
+
+### Creating a Proxmox API Token
+
+1. In the Proxmox web UI, go to **Datacenter → Permissions → API Tokens → Add**.
+2. Select a user (e.g. `root@pam`), set a Token ID (e.g. `indynexus`), and **uncheck** Privilege Separation.
+3. Copy the Token ID (`root@pam!indynexus`) and the Secret UUID — the secret is only shown once.
+
+### Service Configuration (`data/services.json`)
+
+In live mode, the portal reads `data/services.json` to know which Proxmox LXC containers are game servers. Each entry maps a service ID to a Proxmox VMID along with display metadata:
+
+```json
+[
+  {
+    "id": "mc-1",
+    "vmid": 101,
+    "name": "minecraft-survival",
+    "game": "Minecraft",
+    "port": 25565,
+    "maxPlayers": 20
+  }
+]
+```
+
+An example file is provided at `data/services.json.example`. Copy it and edit the VMIDs to match your Proxmox containers.
 
 ## First Login
 
@@ -112,7 +143,7 @@ The user dashboard (`/dashboard.html`) shows all game servers with their current
 | `q` | Logout |
 | `Esc` | Close dialogs |
 
-Use the `≡` action button on a server row to open that server's console panel.
+Use the `>_` action button on a server row to open that server's console panel. The `≡` menu button provides access to Stop and Restart actions.
 
 ### User Dashboard
 
@@ -131,9 +162,12 @@ Use the `≡` action button on a server row to open that server's console panel.
 ```
 indy.nexus/
 ├── server.js          # Express server + REST API
+├── proxmox.js         # Proxmox VE REST API client
 ├── package.json
 ├── data/
-│   └── users.json     # Runtime user store (gitignored)
+│   ├── users.json     # Runtime user store (gitignored)
+│   ├── services.json  # Service → Proxmox VMID mapping (create from .example)
+│   └── services.json.example
 └── public/
     ├── index.html     # Landing page
     ├── login.html     # Login page

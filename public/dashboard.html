@@ -73,7 +73,7 @@
           <div id="servers-tab-mount"></div>
           <div class="panel hidden" id="server-console-panel">
             <div class="panel__title">
-              <span class="icon" aria-hidden="true">≡</span>
+              <span class="icon" aria-hidden="true">&gt;_</span>
               <span id="server-console-title">Console</span>
               <span class="panel__title-spacer"></span>
               <button class="panel__close" id="server-console-close" aria-label="Close console">✕</button>
@@ -136,7 +136,9 @@
     </div>
     <span class="statusbar__sep">│</span>
     <div class="statusbar__section">
-      <kbd>?</kbd> Help
+      <button type="button" class="statusbar__action" id="help-toggle" aria-label="Toggle keyboard shortcuts help">
+        <kbd>?</kbd> Help
+      </button>
     </div>
   </footer>
 
@@ -306,7 +308,9 @@
 
     // Help dialog
     const helpDialog = document.getElementById("help-dialog");
+    const toggleHelp = () => helpDialog.classList.toggle("hidden");
     const closeHelp = () => helpDialog.classList.add("hidden");
+    document.getElementById("help-toggle")?.addEventListener("click", toggleHelp);
     document.getElementById("help-close").addEventListener("click", closeHelp);
     document.getElementById("help-close-btn").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
@@ -315,7 +319,8 @@
 
     // Global shortcuts
     registerGlobalShortcuts({
-      "?": () => helpDialog.classList.toggle("hidden"),
+      "?": toggleHelp,
+      "/": toggleHelp,
       "1": () => switchTab("servers"),
       "2": () => switchTab("account"),
       "q": () => logout(),

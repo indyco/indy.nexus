@@ -242,8 +242,16 @@ function registerGlobalShortcuts(shortcuts) {
     ) {
       return;
     }
-    const key = (e.ctrlKey ? "ctrl+" : "") + (e.altKey ? "alt+" : "") + e.key;
-    const handler = shortcuts[key] || shortcuts[e.key];
+    const key = String(e.key || "");
+    const lowerKey = key.length === 1 ? key.toLowerCase() : key;
+    const slashAlias = e.code === "Slash" ? "/" : null;
+    const questionAlias = e.code === "Slash" ? "?" : null;
+    const keyVariants = [key, lowerKey, slashAlias, questionAlias].filter(Boolean);
+    const modifiedKeyVariants = keyVariants.map((variant) =>
+      (e.ctrlKey ? "ctrl+" : "") + (e.altKey ? "alt+" : "") + variant
+    );
+    const candidates = [...modifiedKeyVariants, ...keyVariants];
+    const handler = candidates.map((candidate) => shortcuts[candidate]).find(Boolean);
     if (handler) {
       e.preventDefault();
       handler(e);

@@ -225,16 +225,26 @@
             <div class="svc-actions">
               <button class="svc-icon-btn start" data-tooltip="Start" data-action="start" data-id="${escapeHtml(serviceId)}"
                 aria-label="Start ${escapeHtml(safeName)}" ${isRunning ? "disabled" : disabledForInvalidId}>▶</button>
-              <button class="svc-icon-btn stop" data-tooltip="Stop" data-action="stop" data-id="${escapeHtml(serviceId)}"
-                aria-label="Stop ${escapeHtml(safeName)}" ${isStopped ? "disabled" : disabledForInvalidId}>■</button>
-              <button class="svc-icon-btn restart" data-tooltip="Restart" data-action="restart" data-id="${escapeHtml(serviceId)}"
-                aria-label="Restart ${escapeHtml(safeName)}" ${disabledForInvalidId}>⟳</button>
               ${showConsoleButton
                 ? `<button class="svc-icon-btn console" data-tooltip="Console" data-action="console" data-id="${escapeHtml(serviceId)}"
-                aria-label="Open console for ${escapeHtml(safeName)}" ${disabledForInvalidId}>≡</button>`
+                aria-label="Open console for ${escapeHtml(safeName)}" ${disabledForInvalidId}>&gt;_</button>`
                 : ""}
               <button class="svc-icon-btn info" data-tooltip="More Info" data-action="info" data-id="${escapeHtml(serviceId)}"
                 aria-label="Info ${escapeHtml(safeName)}" ${disabledForInvalidId}>ℹ</button>
+              <div class="svc-actions-menu">
+                <button class="svc-icon-btn menu" data-tooltip="Actions" data-action="toggle-menu" data-id="${escapeHtml(serviceId)}"
+                  aria-label="More actions for ${escapeHtml(safeName)}" aria-haspopup="true" ${disabledForInvalidId}>≡</button>
+                <div class="svc-dropdown" role="menu">
+                  <button class="svc-dropdown__item stop" data-action="stop" data-id="${escapeHtml(serviceId)}"
+                    role="menuitem" ${isStopped ? "disabled" : disabledForInvalidId}>
+                    <span class="dd-icon">■</span> Stop
+                  </button>
+                  <button class="svc-dropdown__item restart" data-action="restart" data-id="${escapeHtml(serviceId)}"
+                    role="menuitem" ${disabledForInvalidId}>
+                    <span class="dd-icon">⟳</span> Restart
+                  </button>
+                </div>
+              </div>
             </div>
           </td>
         </tr>`;
@@ -276,8 +286,20 @@
       }
     }
 
+    function closeAllDropdowns() {
+      table.querySelectorAll(".svc-dropdown.open").forEach((d) => d.classList.remove("open"));
+    }
+
     function bindTableActions() {
       if (!table) return;
+
+      // Close open dropdowns when clicking anywhere outside
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".svc-actions-menu")) {
+          closeAllDropdowns();
+        }
+      });
+
       table.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-action]");
         if (!button) return;
@@ -285,6 +307,18 @@
         const { action, id } = button.dataset;
         const service = services.find((s) => normalizeServiceId(s?.id) === id);
         if (!service) return;
+
+        if (action === "toggle-menu") {
+          const dropdown = button.parentElement.querySelector(".svc-dropdown");
+          const isOpen = dropdown.classList.contains("open");
+          closeAllDropdowns();
+          if (!isOpen) dropdown.classList.add("open");
+          return;
+        }
+
+        // Close menu after selecting a dropdown item
+        closeAllDropdowns();
+
         if (action === "console") {
           if (typeof onConsoleOpen === "function") {
             onConsoleOpen(service);

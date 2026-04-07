@@ -17,12 +17,20 @@ const os = require("os");
 const crypto = require("crypto");
 const FileStore = require("session-file-store")(session);
 
+const proxmox = require("./proxmox");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PRODUCTION = NODE_ENV === "production";
 const IS_TEST_MODE = process.argv.includes("--test");
 const SESSION_SECRET_FROM_ENV = process.env.SESSION_SECRET;
+
+// Proxmox connection (required in live mode, ignored in --test mode)
+const PROXMOX_HOST = process.env.PROXMOX_HOST || "";
+const PROXMOX_NODE = process.env.PROXMOX_NODE || "";
+const PROXMOX_TOKEN_ID = process.env.PROXMOX_TOKEN_ID || "";
+const PROXMOX_TOKEN_SECRET = process.env.PROXMOX_TOKEN_SECRET || "";
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SERVICE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/i;
@@ -44,6 +52,7 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
 
 const DATA_DIR = path.join(__dirname, "data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
+const SERVICES_FILE = path.join(DATA_DIR, "services.json");
 const SESSIONS_DIR = path.join(DATA_DIR, "sessions");
 
 function ensureDataDir() {
@@ -78,6 +87,23 @@ function saveUsers(users) {
 
 function findUser(predicate) {
   return loadUsers().find(predicate);
+}
+
+/**
+ * Load the service→VMID mapping from data/services.json.
+ * Returns an empty array if the file does not exist (live mode will have
+ * nothing to manage until the admin populates it).
+ */
+function loadServiceConfig() {
+  if (!fs.existsSync(SERVICES_FILE)) {
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(SERVICES_FILE, "utf8"));
+  } catch {
+    console.error("[config] Failed to parse data/services.json");
+    return [];
+  }
 }
 
 function generateTemporaryPassword(length = 8) {
@@ -558,9 +584,11 @@ app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHea
 // System monitoring helpers
 // ---------------------------------------------------------------------------
 
+// --- Test-mode local monitoring (used when --test is active) ---------------
+
 let prevCpuInfo = null;
 
-function getCpuPercent() {
+function getLocalCpuPercent() {
   const cpus = os.cpus();
   let idle = 0, total = 0;
   cpus.forEach((cpu) => {
@@ -577,7 +605,7 @@ function getCpuPercent() {
   return totalDiff === 0 ? 0 : Math.round((1 - idleDiff / totalDiff) * 100);
 }
 
-function getRamInfo() {
+function getLocalRamInfo() {
   const total = os.totalmem();
   const free = os.freemem();
   const used = total - free;
@@ -589,19 +617,59 @@ function getRamInfo() {
   };
 }
 
-// Simulated GPU utilisation (varies realistically over time)
+// Simulated GPU utilisation (test mode only)
 let gpuBase = 15;
-function getGpuPercent() {
-  if (!IS_TEST_MODE) {
-    return 0;
-  }
+function getTestGpuPercent() {
   gpuBase += (Math.random() - 0.5) * 6;
   gpuBase = Math.max(0, Math.min(100, gpuBase));
   return Math.round(gpuBase);
 }
-// Simulated game-server service list (used only in --test mode)
-// Simulated game-server service list
-const SERVICES = [
+
+/**
+ * Build a system resource snapshot.
+ * Test mode: uses local os metrics + simulated GPU.
+ * Live mode: queries the Proxmox host node for real metrics.
+ */
+async function getSystemSnapshot() {
+  if (IS_TEST_MODE) {
+    const ram = getLocalRamInfo();
+    return {
+      cpu: { percent: getLocalCpuPercent(), cores: os.cpus().length },
+      ram: {
+        percent: ram.percent,
+        usedMb: Math.round(ram.used / 1048576),
+        totalMb: Math.round(ram.total / 1048576),
+      },
+      gpu: {
+        percent: getTestGpuPercent(),
+        name: "NVIDIA GeForce RTX 3070",
+      },
+      uptime: os.uptime(),
+    };
+  }
+
+  // Live mode — Proxmox node status
+  const node = await proxmox.getNodeStatus();
+  const cpuPercent = Math.round((node.cpu || 0) * 100);
+  const totalMb = Math.round((node.memory?.total || 0) / 1048576);
+  const usedMb = Math.round((node.memory?.used || 0) / 1048576);
+  const ramPercent = totalMb > 0 ? Math.round((usedMb / totalMb) * 100) : 0;
+
+  return {
+    cpu: { percent: cpuPercent, cores: node.cpuinfo?.cpus || 0 },
+    ram: { percent: ramPercent, usedMb, totalMb },
+    gpu: { percent: 0, name: "GPU monitoring not available" },
+    uptime: node.uptime || 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Game-server service management
+// ---------------------------------------------------------------------------
+
+// --- Test-mode in-memory services -----------------------------------------
+
+const TEST_SERVICES = [
   { id: "mc-1",  name: "minecraft-survival", game: "Minecraft", port: 25565, status: "running",  pid: 2041, uptimeSec: 86400 * 3 + 7200,  cpuPercent: 12, ramMb: 2048, players: 8,  maxPlayers: 20 },
   { id: "val-1", name: "valheim-dedicated",   game: "Valheim",   port: 2456,  status: "running",  pid: 2187, uptimeSec: 86400 + 3600,       cpuPercent: 8,  ramMb: 1536, players: 3,  maxPlayers: 10 },
   { id: "cs-1",  name: "cs2-competitive",     game: "CS2",       port: 27015, status: "stopped",  pid: null, uptimeSec: 0,                  cpuPercent: 0,  ramMb: 0,    players: 0,  maxPlayers: 10 },
@@ -609,11 +677,8 @@ const SERVICES = [
   { id: "ark-1", name: "ark-survival",        game: "ARK",       port: 7777,  status: "starting", pid: 3012, uptimeSec: 45,                 cpuPercent: 34, ramMb: 3072, players: 0,  maxPlayers: 32 },
 ];
 
-function listLiveServices() {
-  if (!IS_TEST_MODE) {
-    return [];
-  }
-  return SERVICES.map((s) => ({
+function testListServices() {
+  return TEST_SERVICES.map((s) => ({
     ...s,
     cpuPercent: s.status === "running"
       ? Math.min(100, Math.max(0, s.cpuPercent + Math.round((Math.random() - 0.5) * 4)))
@@ -624,14 +689,11 @@ function listLiveServices() {
   }));
 }
 
-function findService(id) {
-  if (!IS_TEST_MODE) {
-    return null;
-  }
-  return SERVICES.find((s) => s.id === id);
+function testFindService(id) {
+  return TEST_SERVICES.find((s) => s.id === id);
 }
 
-function startService(svc) {
+function testStartService(svc) {
   svc.status = "running";
   svc.pid = 3000 + Math.floor(Math.random() * 1000);
   svc.uptimeSec = 0;
@@ -639,7 +701,7 @@ function startService(svc) {
   svc.ramMb = Math.round(Math.random() * 1024) + 512;
 }
 
-function stopService(svc) {
+function testStopService(svc) {
   svc.status = "stopped";
   svc.pid = null;
   svc.uptimeSec = 0;
@@ -648,7 +710,7 @@ function stopService(svc) {
   svc.players = 0;
 }
 
-function restartService(svc) {
+function testRestartService(svc) {
   svc.status = "running";
   svc.pid = 3000 + Math.floor(Math.random() * 1000);
   svc.uptimeSec = 0;
@@ -656,102 +718,146 @@ function restartService(svc) {
   svc.ramMb = Math.round(Math.random() * 1024) + 512;
 }
 
-function requireServiceIntegration(req, res) {
+// --- Live-mode Proxmox-backed services ------------------------------------
+
+/**
+ * Map a Proxmox container status response + our config entry into the shape
+ * the frontend expects.
+ */
+function mapContainerToService(cfg, ct) {
+  const status = ct.status || "unknown";    // "running" | "stopped" | …
+  const isRunning = status === "running";
+  return {
+    id: cfg.id,
+    name: cfg.name,
+    game: cfg.game,
+    port: cfg.port,
+    maxPlayers: cfg.maxPlayers,
+    status,
+    pid: ct.pid || null,
+    uptimeSec: ct.uptime || 0,
+    cpuPercent: isRunning ? Math.round((ct.cpu || 0) * 100) : 0,
+    ramMb: isRunning ? Math.round((ct.mem || 0) / 1048576) : 0,
+    players: 0, // player count requires game-specific integration (future)
+  };
+}
+
+/**
+ * List all configured services with live status from Proxmox.
+ */
+async function listLiveServices() {
+  if (IS_TEST_MODE) return testListServices();
+
+  const configs = loadServiceConfig();
+  const results = await Promise.allSettled(
+    configs.map(async (cfg) => {
+      const ct = await proxmox.getContainerStatus(cfg.vmid);
+      return mapContainerToService(cfg, ct);
+    })
+  );
+  return results
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
+/**
+ * Find a single service by its config id and fetch its live status.
+ * Returns { cfg, status } or null.
+ */
+async function findServiceLive(id) {
   if (IS_TEST_MODE) {
-    return true;
+    const svc = testFindService(id);
+    return svc ? { cfg: svc, status: svc } : null;
   }
-  res.status(501).json({
-    error:
-      "Live service integration is not implemented yet. Start with `node server.js --test` for dummy service data.",
-  });
-  return false;
+  const cfg = loadServiceConfig().find((s) => s.id === id);
+  if (!cfg) return null;
+  const ct = await proxmox.getContainerStatus(cfg.vmid);
+  return { cfg, status: mapContainerToService(cfg, ct) };
 }
 
 // GET /api/admin/system — live system resource snapshot
-app.get("/api/admin/system", requireAdmin, (req, res) => {
-  const ram = getRamInfo();
-  res.json({
-    cpu: { percent: getCpuPercent(), cores: os.cpus().length },
-    ram: {
-      percent: ram.percent,
-      usedMb: Math.round(ram.used / 1048576),
-      totalMb: Math.round(ram.total / 1048576),
-    },
-    gpu: {
-      percent: getGpuPercent(),
-      name: IS_TEST_MODE
-        ? "NVIDIA GeForce RTX 3070"
-        : "GPU metrics unavailable (live integration pending)",
-    },
-    uptime: os.uptime(),
-  });
+app.get("/api/admin/system", requireAdmin, async (req, res) => {
+  try {
+    const snapshot = await getSystemSnapshot();
+    res.json(snapshot);
+  } catch (err) {
+    console.error("[api] /api/admin/system error:", err.message);
+    res.status(502).json({ error: "Failed to fetch system metrics" });
+  }
 });
 
 // GET /api/services — running game-server processes (authenticated users)
-app.get("/api/services", requireAuth, requirePasswordResetComplete, (req, res) => {
-  res.json(listLiveServices());
+app.get("/api/services", requireAuth, requirePasswordResetComplete, async (req, res) => {
+  try {
+    res.json(await listLiveServices());
+  } catch (err) {
+    console.error("[api] /api/services error:", err.message);
+    res.status(502).json({ error: "Failed to fetch services" });
+  }
 });
+
 // GET /api/admin/services — running game-server processes
-app.get("/api/admin/services", requireAdmin, (req, res) => {
-  res.json(listLiveServices());
+app.get("/api/admin/services", requireAdmin, async (req, res) => {
+  try {
+    res.json(await listLiveServices());
+  } catch (err) {
+    console.error("[api] /api/admin/services error:", err.message);
+    res.status(502).json({ error: "Failed to fetch services" });
+  }
 });
 
-// POST /api/services/:id/start
-app.post("/api/services/:id/start", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
-  startService(svc);
-  res.json({ message: `Service "${svc.name}" started` });
-});
+// --- Service action helper (DRY for start/stop/restart) -------------------
 
-// POST /api/services/:id/stop
-app.post("/api/services/:id/stop", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
-  stopService(svc);
-  res.json({ message: `Service "${svc.name}" stopped` });
-});
+async function handleServiceAction(req, res, action) {
+  const id = req.params.id;
+  try {
+    const result = await findServiceLive(id);
+    if (!result) return res.status(404).json({ error: "Service not found" });
 
-// POST /api/services/:id/restart
-app.post("/api/services/:id/restart", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  restartService(svc);
-  res.json({ message: `Service "${svc.name}" restarted` });
-});
-// POST /api/admin/services/:id/start
-app.post("/api/admin/services/:id/start", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
-  startService(svc);
-  res.json({ message: `Service "${svc.name}" started` });
-});
+    const { cfg, status: svc } = result;
 
-// POST /api/admin/services/:id/stop
-app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
-  stopService(svc);
-  res.json({ message: `Service "${svc.name}" stopped` });
-});
+    if (IS_TEST_MODE) {
+      // Test mode: mutate in-memory array
+      const testSvc = testFindService(id);
+      if (!testSvc) return res.status(404).json({ error: "Service not found" });
+      if (action === "start") {
+        if (testSvc.status === "running") return res.status(400).json({ error: "Service is already running" });
+        testStartService(testSvc);
+      } else if (action === "stop") {
+        if (testSvc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
+        testStopService(testSvc);
+      } else {
+        testRestartService(testSvc);
+      }
+      return res.json({ message: `Service "${testSvc.name}" ${action === "restart" ? "restarted" : action + "ed"}` });
+    }
 
-// POST /api/admin/services/:id/restart
-app.post("/api/admin/services/:id/restart", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => {
-  if (!requireServiceIntegration(req, res)) return;
-  const svc = findService(req.params.id);
-  if (!svc) return res.status(404).json({ error: "Service not found" });
-  restartService(svc);
-  res.json({ message: `Service "${svc.name}" restarted` });
-});
+    // Live mode: call Proxmox API
+    if (action === "start") {
+      if (svc.status === "running") return res.status(400).json({ error: "Service is already running" });
+      await proxmox.startContainer(cfg.vmid);
+    } else if (action === "stop") {
+      if (svc.status === "stopped") return res.status(400).json({ error: "Service is already stopped" });
+      await proxmox.stopContainer(cfg.vmid);
+    } else {
+      await proxmox.rebootContainer(cfg.vmid);
+    }
+    res.json({ message: `Service "${cfg.name}" ${action === "restart" ? "restarted" : action + "ed"}` });
+  } catch (err) {
+    console.error(`[api] service ${action} error:`, err.message);
+    res.status(502).json({ error: `Failed to ${action} service` });
+  }
+}
+
+// POST /api/services/:id/start|stop|restart (authenticated users)
+app.post("/api/services/:id/start", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "start"));
+app.post("/api/services/:id/stop", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "stop"));
+app.post("/api/services/:id/restart", adminWriteLimiter, requireAuth, requirePasswordResetComplete, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "restart"));
+
+// POST /api/admin/services/:id/start|stop|restart (admin only)
+app.post("/api/admin/services/:id/start", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "start"));
+app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "stop"));
+app.post("/api/admin/services/:id/restart", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "restart"));
 
 // POST /api/admin/change-password
 app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
@@ -852,12 +958,35 @@ app.get("*", staticLimiter, (req, res) => {
 // Start
 // ---------------------------------------------------------------------------
 
+// Validate Proxmox config in live mode and initialise the API client.
+if (!IS_TEST_MODE) {
+  const missing = [];
+  if (!PROXMOX_HOST) missing.push("PROXMOX_HOST");
+  if (!PROXMOX_NODE) missing.push("PROXMOX_NODE");
+  if (!PROXMOX_TOKEN_ID) missing.push("PROXMOX_TOKEN_ID");
+  if (!PROXMOX_TOKEN_SECRET) missing.push("PROXMOX_TOKEN_SECRET");
+  if (missing.length) {
+    throw new Error(
+      `[config] Missing required Proxmox environment variables: ${missing.join(", ")}. ` +
+        "Set them or start with --test for dummy data."
+    );
+  }
+  proxmox.configure({
+    host: PROXMOX_HOST,
+    node: PROXMOX_NODE,
+    tokenId: PROXMOX_TOKEN_ID,
+    tokenSecret: PROXMOX_TOKEN_SECRET,
+  });
+  console.log(`[config] Proxmox API configured (host: ${PROXMOX_HOST}, node: ${PROXMOX_NODE})`);
+}
+
 bootstrapAdmin();
 app.listen(PORT, () => {
   if (IS_TEST_MODE) {
     console.log("[mode] Test mode enabled (dummy service data active)");
   } else {
-    console.log("[mode] Live mode enabled (service integration pending)");
+    const serviceCount = loadServiceConfig().length;
+    console.log(`[mode] Live mode — Proxmox integration active (${serviceCount} service(s) configured)`);
   }
   console.log(`[server] indy.nexus running on http://localhost:${PORT}`);
 });

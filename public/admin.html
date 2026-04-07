@@ -356,7 +356,7 @@
           <div id="servers-tab-mount"></div>
           <div class="panel hidden" id="admin-server-console-panel">
             <div class="panel__title">
-              <span class="icon" aria-hidden="true">≡</span>
+              <span class="icon" aria-hidden="true">&gt;_</span>
               <span id="admin-server-console-title">Console</span>
               <span class="panel__title-spacer"></span>
               <button class="panel__close" id="admin-server-console-close" aria-label="Close console">✕</button>
@@ -495,7 +495,12 @@
     </div>
     <span class="statusbar__sep">│</span>
     <div class="statusbar__section">
-      <kbd>r</kbd> Refresh &nbsp; <kbd>?</kbd> Help
+      <button type="button" class="statusbar__action" id="refresh-toggle" aria-label="Refresh admin data">
+        <kbd>r</kbd> Refresh
+      </button>
+      <button type="button" class="statusbar__action" id="help-toggle" aria-label="Toggle keyboard shortcuts help">
+        <kbd>?</kbd> Help
+      </button>
     </div>
   </footer>
 
@@ -703,7 +708,11 @@
 
     // Help dialog
     const helpDialog = document.getElementById("help-dialog");
+    const refreshData = () => { loadUsers(); pollSystem(); serversTab?.refresh(); };
+    const toggleHelp = () => helpDialog.classList.toggle("hidden");
     const closeHelp = () => helpDialog.classList.add("hidden");
+    document.getElementById("refresh-toggle")?.addEventListener("click", refreshData);
+    document.getElementById("help-toggle")?.addEventListener("click", toggleHelp);
     document.getElementById("help-close").addEventListener("click", closeHelp);
     document.getElementById("help-close-btn").addEventListener("click", closeHelp);
     helpDialog.addEventListener("click", (e) => { if (e.target === helpDialog) closeHelp(); });
@@ -720,13 +729,14 @@
 
     // Global shortcuts
     registerGlobalShortcuts({
-      "?": () => helpDialog.classList.toggle("hidden"),
+      "?": toggleHelp,
+      "/": toggleHelp,
       "1": () => switchTab("services"),
       "2": () => switchTab("resources"),
       "3": () => switchTab("pending"),
       "4": () => switchTab("all-users"),
       "5": () => switchTab("settings"),
-      "r": () => { loadUsers(); pollSystem(); serversTab?.refresh(); },
+      "r": refreshData,
       "q": () => logout(),
       "Escape": () => helpDialog.classList.add("hidden"),
     });
