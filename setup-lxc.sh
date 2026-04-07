@@ -58,6 +58,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Verify npm works (NodeSource packages occasionally ship with broken deps)
+# ---------------------------------------------------------------------------
+if ! npm --version &>/dev/null; then
+  warn "npm is broken (missing internal modules), reinstalling..."
+  curl -fsSL https://www.npmjs.com/install.sh | sh
+fi
+info "npm $(npm --version) ready."
+
+# ---------------------------------------------------------------------------
 # Install git (needed to clone)
 # ---------------------------------------------------------------------------
 if ! command -v git &>/dev/null; then
