@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin — indy.nexus</title>
+  <meta name="description" content="Admin control panel for the indy.nexus game server hosting portal.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/tui.css">
   <style>
     .dashboard-layout {
@@ -145,6 +147,7 @@
 
   <!-- Title Bar -->
   <header class="titlebar" role="banner">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">☰</button>
     <span class="titlebar__logo">indy<span>.</span>nexus</span>
     <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
       <span class="titlebar__nav-item active" tabindex="0">
@@ -260,7 +263,7 @@
                 <tbody id="pending-tbody">
                   <tr id="pending-empty">
                     <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
-                      No pending requests
+                      Loading…
                     </td>
                   </tr>
                 </tbody>
@@ -295,7 +298,7 @@
                 <tbody id="all-tbody">
                   <tr id="all-empty">
                     <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
-                      No users found
+                      Loading…
                     </td>
                   </tr>
                 </tbody>
@@ -692,13 +695,27 @@
     switchTab(savedTab);
 
     // Sidebar navigation
-    enableSidebarNav(document.getElementById("sidebar"));
+    const sidebar = document.getElementById("sidebar");
+    const sidebarToggle = document.getElementById("sidebar-toggle");
+    enableSidebarNav(sidebar);
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener("click", () => {
+        sidebar.classList.toggle("open");
+        sidebarToggle.setAttribute("aria-expanded", sidebar.classList.contains("open"));
+      });
+    }
     document.querySelectorAll("[data-tab]").forEach((item) => {
-      item.addEventListener("click", () => switchTab(item.dataset.tab));
+      item.addEventListener("click", () => {
+        switchTab(item.dataset.tab);
+        sidebar.classList.remove("open");
+        if (sidebarToggle) sidebarToggle.setAttribute("aria-expanded", "false");
+      });
       item.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           switchTab(item.dataset.tab);
+          sidebar.classList.remove("open");
+          if (sidebarToggle) sidebarToggle.setAttribute("aria-expanded", "false");
         }
       });
     });
@@ -1122,7 +1139,7 @@
 
   async function loadAllUsersForRename() {
     try {
-      const users = await apiFetch("/api/admin/all-users");
+      const users = await apiFetch("/api/admin/users");
       const select = document.getElementById("user-select");
       const safeUsers = users.filter((u) => isValidUserId(u.id));
       

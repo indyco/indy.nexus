@@ -15,6 +15,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
+const compression = require("compression");
 const FileStore = require("session-file-store")(session);
 
 const proxmox = require("./proxmox");
@@ -50,7 +51,7 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
 // Data persistence helpers (JSON file store — simple, no DB required)
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR = path.join(__dirname, IS_TEST_MODE ? "data-test" : "data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const SERVICES_FILE = path.join(DATA_DIR, "services.json");
 const SESSIONS_DIR = path.join(DATA_DIR, "sessions");
@@ -151,10 +152,10 @@ function requireValidServiceIdParam(req, res, next) {
 // Bootstrap admin account (username: admin, password: admin — change on first run)
 // ---------------------------------------------------------------------------
 
-function bootstrapAdmin() {
+async function bootstrapAdmin() {
   const users = loadUsers();
   if (!users.find((u) => u.role === "admin")) {
-    const hash = bcrypt.hashSync("admin", 10);
+const hash = await bcrypt.hash("admin", 10);
     users.push({
       id: uuidv4(),
       username: "admin",
@@ -177,6 +178,7 @@ function bootstrapAdmin() {
 ensureSessionDir();
 
 app.disable("x-powered-by");
+app.use(compression());
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -324,6 +326,15 @@ function requireCsrfHeader(req, res, next) {
 // API routes
 // ---------------------------------------------------------------------------
 
+// GET /api/health — public health check (no auth required)
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    mode: IS_TEST_MODE ? "test" : "live",
+  });
+});
+
 // GET /api/me — current session info
 app.get("/api/me", (req, res) => {
   if (!req.session.userId) {
@@ -344,7 +355,7 @@ app.get("/api/me", (req, res) => {
 });
 
 // POST /api/register
-app.post("/api/register", authLimiter, requireCsrfHeader, (req, res) => {
+app.post("/api/register", authLimiter, requireCsrfHeader, async (req, res) => {
   const username = asTrimmedString(req.body?.username);
   const password = asString(req.body?.password);
 
@@ -379,7 +390,7 @@ app.post("/api/register", authLimiter, requireCsrfHeader, (req, res) => {
     });
   }
 
-  const hash = bcrypt.hashSync(password, 10);
+  const hash = await bcrypt.hash(password, 10);
   users.push({
     id: uuidv4(),
     username,
@@ -390,13 +401,14 @@ app.post("/api/register", authLimiter, requireCsrfHeader, (req, res) => {
   });
   saveUsers(users);
 
+  console.log(`[audit] User registered: "${username}"`);
   res.status(201).json({
     message: "Registration successful. Your account is awaiting admin approval.",
   });
 });
 
 // POST /api/login
-app.post("/api/login", authLimiter, requireCsrfHeader, (req, res) => {
+app.post("/api/login", authLimiter, requireCsrfHeader, async (req, res) => {
   const username = asTrimmedString(req.body?.username);
   const password = asString(req.body?.password);
 
@@ -408,7 +420,7 @@ app.post("/api/login", authLimiter, requireCsrfHeader, (req, res) => {
     (u) => u.username.toLowerCase() === username.toLowerCase()
   );
 
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: "Invalid username or password" });
   }
 
@@ -463,19 +475,6 @@ app.get("/api/admin/users", requireAdmin, (req, res) => {
   res.json(users);
 });
 
-// GET /api/admin/all-users — list ALL users including admins (admin only, for rename feature)
-app.get("/api/admin/all-users", requireAdmin, (req, res) => {
-  const users = loadUsers()
-    .map(({ id, username, role, status, createdAt, mustChangePassword }) => ({
-      id,
-      username,
-      role,
-      status,
-      createdAt,
-      mustChangePassword: !!mustChangePassword,
-    }));
-  res.json(users);
-});
 
 // POST /api/admin/users/:id/approve
 app.post("/api/admin/users/:id/approve", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
@@ -486,6 +485,7 @@ app.post("/api/admin/users/:id/approve", adminWriteLimiter, requireAdmin, requir
   }
   user.status = "approved";
   saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" approved user "${user.username}"`);
   res.json({ message: `User "${user.username}" approved` });
 });
 
@@ -498,6 +498,7 @@ app.post("/api/admin/users/:id/deny", adminWriteLimiter, requireAdmin, requireVa
   }
   user.status = "denied";
   saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" denied user "${user.username}"`);
   res.json({ message: `User "${user.username}" denied` });
 });
 
@@ -510,11 +511,12 @@ app.post("/api/admin/users/:id/revoke", adminWriteLimiter, requireAdmin, require
   }
   user.status = "pending";
   saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" revoked user "${user.username}"`);
   res.json({ message: `User "${user.username}" reverted to pending` });
 });
 
 // POST /api/admin/users/:id/reset-password — generate temporary password and force reset on next login
-app.post("/api/admin/users/:id/reset-password", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
+app.post("/api/admin/users/:id/reset-password", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, async (req, res) => {
   const users = loadUsers();
   const user = users.find((u) => u.id === req.params.id);
   if (!user) {
@@ -528,11 +530,12 @@ app.post("/api/admin/users/:id/reset-password", adminWriteLimiter, requireAdmin,
   }
 
   const temporaryPassword = generateTemporaryPassword(8);
-  user.passwordHash = bcrypt.hashSync(temporaryPassword, 10);
+  user.passwordHash = await bcrypt.hash(temporaryPassword, 10);
   user.mustChangePassword = true;
   user.passwordResetIssuedAt = new Date().toISOString();
   saveUsers(users);
 
+  console.log(`[audit] Admin "${req.currentUser.username}" reset password for user "${user.username}"`);
   res.json({
     message: `Password reset for "${user.username}"`,
     temporaryPassword,
@@ -540,7 +543,7 @@ app.post("/api/admin/users/:id/reset-password", adminWriteLimiter, requireAdmin,
 });
 
 // POST /api/account/reset-password — complete forced password reset using temporary password session
-app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHeader, (req, res) => {
+app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHeader, async (req, res) => {
   const newPassword = asString(req.body?.newPassword);
   const confirmPassword = asString(req.body?.confirmPassword);
   if (!newPassword || !confirmPassword) {
@@ -565,11 +568,11 @@ app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHea
   if (!user.mustChangePassword) {
     return res.status(400).json({ error: "Password reset is not required for this account" });
   }
-  if (bcrypt.compareSync(newPassword, user.passwordHash)) {
+  if (await bcrypt.compare(newPassword, user.passwordHash)) {
     return res.status(400).json({ error: "New password must be different from the temporary password" });
   }
 
-  user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
   user.mustChangePassword = false;
   delete user.temporaryPassword;
   delete user.temporaryPasswordCreatedAt;
@@ -578,6 +581,30 @@ app.post("/api/account/reset-password", authLimiter, requireAuth, requireCsrfHea
 
   req.session.mustChangePassword = false;
   res.json({ message: "Password updated successfully" });
+});
+
+// POST /api/account/change-password — self-service password change for approved users
+app.post("/api/account/change-password", authLimiter, requireAuth, requirePasswordResetComplete, requireCsrfHeader, async (req, res) => {
+  const currentPassword = asString(req.body?.currentPassword);
+  const newPassword = asString(req.body?.newPassword);
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Both fields are required" });
+  }
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: "New password must be at least 8 characters" });
+  }
+  if (newPassword.length > MAX_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: "New password must be 128 characters or fewer" });
+  }
+  const users = loadUsers();
+  const user = users.find((u) => u.id === req.session.userId);
+  if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    return res.status(401).json({ error: "Current password is incorrect" });
+  }
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  saveUsers(users);
+  console.log(`[audit] User "${user.username}" changed their password`);
+  res.json({ message: "Password changed successfully" });
 });
 
 // ---------------------------------------------------------------------------
@@ -860,7 +887,7 @@ app.post("/api/admin/services/:id/stop", adminWriteLimiter, requireAdmin, requir
 app.post("/api/admin/services/:id/restart", adminWriteLimiter, requireAdmin, requireValidServiceIdParam, requireCsrfHeader, (req, res) => handleServiceAction(req, res, "restart"));
 
 // POST /api/admin/change-password
-app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireCsrfHeader, (req, res) => {
+app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireCsrfHeader, async (req, res) => {
   const currentPassword = asString(req.body?.currentPassword);
   const newPassword = asString(req.body?.newPassword);
   if (!currentPassword || !newPassword) {
@@ -874,11 +901,12 @@ app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireC
   }
   const users = loadUsers();
   const admin = users.find((u) => u.id === req.session.userId);
-  if (!admin || !bcrypt.compareSync(currentPassword, admin.passwordHash)) {
+  if (!admin || !(await bcrypt.compare(currentPassword, admin.passwordHash))) {
     return res.status(401).json({ error: "Current password is incorrect" });
   }
-  admin.passwordHash = bcrypt.hashSync(newPassword, 10);
+  admin.passwordHash = await bcrypt.hash(newPassword, 10);
   saveUsers(users);
+  console.log(`[audit] Admin "${admin.username}" changed their password`);
   res.json({ message: "Password changed successfully" });
 });
 
@@ -919,6 +947,7 @@ app.post("/api/admin/rename-user", adminWriteLimiter, requireAdmin, requireCsrfH
   const oldUsername = userToRename.username;
   userToRename.username = newUsername;
   saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" renamed user "${oldUsername}" to "${newUsername}"`);
   
   // Update session if admin renamed themselves
   if (userId === req.session.userId) {
@@ -980,13 +1009,34 @@ if (!IS_TEST_MODE) {
   console.log(`[config] Proxmox API configured (host: ${PROXMOX_HOST}, node: ${PROXMOX_NODE})`);
 }
 
-bootstrapAdmin();
-app.listen(PORT, () => {
-  if (IS_TEST_MODE) {
-    console.log("[mode] Test mode enabled (dummy service data active)");
-  } else {
-    const serviceCount = loadServiceConfig().length;
-    console.log(`[mode] Live mode — Proxmox integration active (${serviceCount} service(s) configured)`);
+bootstrapAdmin().then(() => {
+  const server = app.listen(PORT, () => {
+    if (IS_TEST_MODE) {
+      console.log("[mode] Test mode enabled (dummy service data active)");
+    } else {
+      const serviceCount = loadServiceConfig().length;
+      console.log(`[mode] Live mode — Proxmox integration active (${serviceCount} service(s) configured)`);
+    }
+    console.log(`[server] indy.nexus running on http://localhost:${PORT}`);
+  });
+
+  // -------------------------------------------------------------------------
+  // Graceful shutdown
+  // -------------------------------------------------------------------------
+
+  function shutdown(signal) {
+    console.log(`\n[server] Received ${signal}, shutting down gracefully…`);
+    server.close(() => {
+      console.log("[server] HTTP server closed.");
+      process.exit(0);
+    });
+    // Force exit after 10 seconds if connections won't close
+    setTimeout(() => {
+      console.error("[server] Forcing exit after timeout.");
+      process.exit(1);
+    }, 10000).unref();
   }
-  console.log(`[server] indy.nexus running on http://localhost:${PORT}`);
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 });

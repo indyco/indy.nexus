@@ -6,10 +6,14 @@
   "scripts": {
     "start": "node server.js",
     "start:test": "node server.js --test",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:headed": "npx playwright test --headed"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",
     "express-session": "^1.18.1",
@@ -19,5 +23,8 @@
   },
   "overrides": {
     "path-to-regexp": "0.1.13"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
   }
 }

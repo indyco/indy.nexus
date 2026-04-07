@@ -4,3 +4,10 @@ data/services.json
 data/sessions/
 .env
 *.log
+
+data-test/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
