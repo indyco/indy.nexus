@@ -6,6 +6,7 @@ data/sessions/
 *.log
 
 data-test/
+data-playwright/
 
 # Playwright
 test-results/

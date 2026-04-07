@@ -50,12 +50,78 @@
       </p>
 
       <div class="landing__actions" role="group" aria-label="Get started actions">
-        <a href="/login.html" class="btn btn--primary focus-ring" tabindex="0" id="btn-login">
+        <button type="button" class="btn btn--primary focus-ring" tabindex="0" id="btn-login" aria-expanded="false" aria-controls="inline-login">
           ▶ Login
-        </a>
+        </button>
         <a href="/register.html" class="btn btn--ghost focus-ring" tabindex="0" id="btn-register">
           + Request Access
         </a>
+      </div>
+
+      <!-- Inline Login Form -->
+      <div class="inline-login" id="inline-login" aria-label="Login form">
+        <div class="auth-card">
+          <div class="auth-card__header">
+            <span class="auth-card__icon" aria-hidden="true">▶</span>
+            <h2 class="auth-card__title">Login</h2>
+          </div>
+          <div class="auth-card__body">
+            <div id="inline-alert-area" role="alert" aria-live="polite"></div>
+            <form id="inline-login-form" novalidate autocomplete="on">
+              <div class="flex-col gap-md">
+                <div class="field">
+                  <label for="inline-username">
+                    Username <span class="req" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="inline-username"
+                    name="username"
+                    class="input"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    required
+                    aria-required="true"
+                    placeholder="your_username"
+                    minlength="3"
+                    maxlength="32"
+                    pattern="[a-zA-Z0-9_\-]+"
+                  >
+                </div>
+                <div class="field">
+                  <label for="inline-password">
+                    Password <span class="req" aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="inline-password"
+                    name="password"
+                    class="input"
+                    autocomplete="current-password"
+                    required
+                    aria-required="true"
+                    placeholder="••••••••"
+                    maxlength="128"
+                  >
+                </div>
+                <button type="submit" class="btn btn--primary btn--full" id="inline-submit-btn">
+                  <span class="btn-text">▶ Login</span>
+                </button>
+              </div>
+            </form>
+            <div class="help-row" role="note">
+              <span><kbd>Tab</kbd> Next field</span>
+              <span><kbd>Enter</kbd> Submit</span>
+              <span><kbd>Esc</kbd> Close</span>
+            </div>
+          </div>
+          <div class="auth-card__footer">
+            Don't have an account?
+            <a href="/register.html" class="focus-ring">Request access</a>
+          </div>
+        </div>
       </div>
 
       <!-- Feature Cards -->
@@ -89,7 +155,7 @@
       <span class="tag blue">indy.nexus</span>
     </div>
     <span class="statusbar__sep">│</span>
-    <div class="statusbar__section">v1.0</div>
+    <div class="statusbar__section">v1.1</div>
     <div class="statusbar__spacer"></div>
     <div class="statusbar__section">
       <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
@@ -169,10 +235,95 @@
     }
   })();
 
+  // ── Inline login toggle ──
+  const loginBtn = document.getElementById("btn-login");
+  const inlineLogin = document.getElementById("inline-login");
+  const inlineForm = document.getElementById("inline-login-form");
+  const inlineSubmitBtn = document.getElementById("inline-submit-btn");
+  const inlineAlertArea = document.getElementById("inline-alert-area");
+
+  function toggleLoginPanel(forceOpen) {
+    const isOpen = inlineLogin.classList.contains("open");
+    const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !isOpen;
+
+    if (shouldOpen) {
+      inlineLogin.classList.add("open");
+      loginBtn.setAttribute("aria-expanded", "true");
+      // Focus username field after the transition
+      setTimeout(() => document.getElementById("inline-username").focus(), 300);
+    } else {
+      inlineLogin.classList.remove("open");
+      loginBtn.setAttribute("aria-expanded", "false");
+      clearAlert(inlineAlertArea);
+      inlineForm.reset();
+      loginBtn.focus();
+    }
+  }
+
+  loginBtn.addEventListener("click", () => toggleLoginPanel());
+
+  // Close on Escape when inside the inline login panel
+  inlineLogin.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      toggleLoginPanel(false);
+    }
+  });
+
+  // Handle inline login submission
+  inlineForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert(inlineAlertArea);
+
+    const username = inlineForm.username.value.trim();
+    const password = inlineForm.password.value;
+
+    if (!username || !password) {
+      showAlert(inlineAlertArea, "Please enter your username and password.", "error");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      showAlert(inlineAlertArea, "Username may only contain letters, numbers, _ and -.", "error");
+      inlineForm.username.focus();
+      return;
+    }
+    if (password.length > 128) {
+      showAlert(inlineAlertArea, "Password must be 128 characters or fewer.", "error");
+      inlineForm.password.focus();
+      return;
+    }
+
+    setButtonLoading(inlineSubmitBtn, true);
+
+    try {
+      const data = await apiFetch("/api/login", {
+        method: "POST",
+        body: { username, password },
+      });
+
+      showAlert(inlineAlertArea, data.message || "Login successful!", "success");
+
+      setTimeout(() => {
+        if (data.mustChangePassword) {
+          window.location.href = "/reset-password.html";
+          return;
+        }
+        window.location.href = data.role === "admin" ? "/admin.html" : "/dashboard.html";
+      }, 400);
+
+    } catch (err) {
+      showAlert(inlineAlertArea, err.message, "error");
+      inlineForm.password.value = "";
+      inlineForm.username.focus();
+    } finally {
+      setButtonLoading(inlineSubmitBtn, false);
+    }
+  });
+
   // Global keyboard shortcuts
   registerGlobalShortcuts({
-    l: () => { window.location.href = "/login.html"; },
-    L: () => { window.location.href = "/login.html"; },
+    l: () => toggleLoginPanel(true),
+    L: () => toggleLoginPanel(true),
     r: () => { window.location.href = "/register.html"; },
     R: () => { window.location.href = "/register.html"; },
   });

@@ -1172,6 +1172,27 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   text-align: center;
 }
 
+/* ── Inline login panel (landing page) ─────────────────────── */
+.inline-login {
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.3s ease;
+  margin-top: 0;
+}
+
+.inline-login.open {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 1.5rem;
+}
+
+.inline-login .auth-card {
+  max-width: none;
+}
+
 /* ── Help hints ───────────────────────────────────────────── */
 .help-row {
   display: flex;

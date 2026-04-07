@@ -1,7 +1,11 @@
 import { defineConfig } from "@playwright/test";
+import path from "path";
+
+const PLAYWRIGHT_DATA_DIR = path.join(__dirname, "data-playwright");
 
 export default defineConfig({
   globalSetup: "./tests/global-setup.ts",
+  globalTeardown: "./tests/global-teardown.ts",
   testDir: "./tests",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -27,6 +31,6 @@ export default defineConfig({
     url: "http://localhost:3099/api/health",
     reuseExistingServer: false,
     timeout: 10000,
-    env: { PORT: "3099" },
+    env: { PORT: "3099", DATA_DIR: PLAYWRIGHT_DATA_DIR },
   },
 });

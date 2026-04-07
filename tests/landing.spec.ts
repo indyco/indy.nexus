@@ -18,10 +18,21 @@ test.describe("Landing page", () => {
     await expect(page.locator(".feature-card")).toHaveCount(2);
   });
 
-  test("login button navigates to /login.html", async ({ page }) => {
+  test("login button opens inline login form", async ({ page }) => {
     await page.goto("/");
+    const panel = page.locator("#inline-login");
+    await expect(panel).not.toHaveClass(/open/);
     await page.click("#btn-login");
-    await expect(page).toHaveURL(/login\.html/);
+    await expect(panel).toHaveClass(/open/);
+    await expect(page.locator("#inline-login-form")).toBeVisible();
+  });
+
+  test("L key opens inline login form", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.locator("#inline-login");
+    await expect(panel).not.toHaveClass(/open/);
+    await page.keyboard.press("l");
+    await expect(panel).toHaveClass(/open/);
   });
 
   test("register button navigates to /register.html", async ({ page }) => {
