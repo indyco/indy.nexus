@@ -9,6 +9,11 @@ import bcrypt from "bcryptjs";
 export default async function globalSetup() {
   const dataDir = path.join(__dirname, "..", "data-test");
 
+  // Safety: never operate on the real data directory
+  if (!path.basename(dataDir).includes("test")) {
+    throw new Error(`Global setup refusing to touch non-test directory: ${dataDir}`);
+  }
+
   // Ensure the directory exists
   fs.mkdirSync(dataDir, { recursive: true });
 
