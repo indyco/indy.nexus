@@ -57,6 +57,9 @@ if ! command -v node &>/dev/null; then
 else
   info "Node.js already installed: $(node --version)"
 fi
+# Node 22.x ships with npm 10.x — pin to known-good npm 11.12.1
+info "Installing npm 11.12.1..."
+npm install -g npm@11.12.1
 info "node $(node --version), npm $(npm --version) ready."
 
 # ---------------------------------------------------------------------------
