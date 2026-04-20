@@ -9,6 +9,29 @@ async function loginAsAdmin(page: Page) {
   await expect(page).toHaveURL(/admin\.html/, { timeout: 5000 });
 }
 
+// All tests in this file log in as admin (or testuser) against the same file-based
+// session store. Running them in parallel causes intermittent session write races
+// (retries:0 on the FileStore silently drops contested writes). Serial mode prevents
+// that while still allowing other test files to run concurrently.
+test.describe.configure({ mode: "serial" });
+
+test.describe("Admin panel access guard", () => {
+  test("regular user is redirected away from /admin.html", async ({ page }) => {
+    // Log in as an approved regular (non-admin) user
+    await page.goto("/login.html");
+    await page.fill("#username", "testuser");
+    await page.fill("#password", "password123");
+    await page.click("#submit-btn");
+    await expect(page).toHaveURL(/dashboard\.html/, { timeout: 5000 });
+
+    // Attempt to navigate directly to the admin panel
+    await page.goto("/admin.html");
+
+    // requireAdmin() in tui.js should redirect non-admins to /dashboard.html
+    await expect(page).toHaveURL(/dashboard\.html/, { timeout: 5000 });
+  });
+});
+
 test.describe("Admin panel", () => {
   test("shows sidebar with all sections", async ({ page }) => {
     await loginAsAdmin(page);
