@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — indy.nexus</title>
+  <meta name="description" content="Page not found — indy.nexus">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/tui.css">
+  <style>
+    .error-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .error-card {
+      text-align: center;
+      max-width: 520px;
+      width: 100%;
+    }
+    .error-ascii {
+      font-size: 0.65rem;
+      line-height: 1.2;
+      color: var(--red);
+      white-space: pre;
+      font-family: var(--font-mono);
+      text-shadow: 0 0 20px rgba(243,139,168,0.3);
+      margin-bottom: 1.5rem;
+    }
+    .error-code {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--red);
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+    .error-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .error-log {
+      background: var(--crust);
+      border: var(--border-width) solid var(--surface1);
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      text-align: left;
+      font-size: 0.75rem;
+      color: var(--subtext0);
+      margin-bottom: 1.5rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .error-log .prompt { color: var(--green); }
+    .error-log .cmd { color: var(--text); }
+    .error-log .err { color: var(--red); }
+    .error-log .warn { color: var(--yellow); }
+    .error-log .muted { color: var(--overlay0); }
+    .error-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-nav">Skip to content</a>
+
+<div class="shell">
+
+  <!-- Title Bar -->
+  <header class="titlebar" role="banner">
+    <a href="/" class="titlebar__logo" style="text-decoration:none">indy<span>.</span>nexus</a>
+    <nav class="titlebar__nav" role="navigation" aria-label="Primary navigation">
+      <a href="/" class="titlebar__nav-item focus-ring" tabindex="0">Home</a>
+      <a href="/login.html" class="titlebar__nav-item focus-ring" tabindex="0">Login</a>
+    </nav>
+    <div class="titlebar__spacer"></div>
+    <div class="titlebar__status">
+      <div class="dot"></div>
+      <span>Online</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main error-wrap" id="main-content">
+    <div class="error-card">
+
+      <pre class="error-ascii" aria-label="404 ASCII art" role="img">
+ ██╗  ██╗ ██████╗ ██╗  ██╗
+ ██║  ██║██╔═████╗██║  ██║
+ ███████║██║██╔██║███████║
+ ╚════██║████╔╝██║╚════██║
+      ██║╚██████╔╝     ██║
+      ╚═╝ ╚═════╝      ╚═╝</pre>
+
+      <h1 class="error-title">Page Not Found</h1>
+
+      <div class="error-log" role="status" aria-label="Error details">
+<span class="prompt">indy@nexus</span> <span class="muted">~</span> <span class="cmd">GET <span id="error-path"></span></span>
+<span class="err">ERR!</span> 404 — the server looked everywhere, found nothing.
+<span class="warn">WARN</span> this page doesn't exist (or never did).
+<span class="muted">hint</span> maybe check the URL, or head back home.</div>
+
+      <div class="error-actions">
+        <a href="/" class="btn btn--primary focus-ring">◀ Back Home</a>
+        <a href="/login.html" class="btn btn--ghost focus-ring">▶ Login</a>
+      </div>
+
+      <!-- Keyboard hints -->
+      <div class="help-row" role="note" style="justify-content:center; margin-top:1.5rem">
+        <span><kbd>H</kbd> Home</span>
+        <span><kbd>L</kbd> Login</span>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" role="contentinfo">
+    <div class="statusbar__section">
+      <span class="tag red">404</span>
+    </div>
+    <span class="statusbar__sep">│</span>
+    <div class="statusbar__section">Not Found</div>
+    <div class="statusbar__spacer"></div>
+    <div class="statusbar__section">
+      <span id="statusbar-clock" aria-live="off" aria-atomic="true"></span>
+    </div>
+  </footer>
+
+</div><!-- .shell -->
+
+<script src="/js/tui.js"></script>
+<script>
+  "use strict";
+
+  // Show the path that was requested
+  document.getElementById("error-path").textContent = window.location.pathname;
+
+  // Keyboard shortcuts
+  registerGlobalShortcuts({
+    h: () => { window.location.href = "/"; },
+    H: () => { window.location.href = "/"; },
+    l: () => { window.location.href = "/login.html"; },
+    L: () => { window.location.href = "/login.html"; },
+  });
+</script>
+
+</body>
+</html>

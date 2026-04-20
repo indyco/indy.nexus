@@ -43,11 +43,21 @@
         <!-- Alert area -->
         <div id="alert-area" role="alert" aria-live="polite"></div>
 
-        <!-- Notice about manual approval -->
-        <div class="alert alert--info" role="note">
-          <span class="alert__icon" aria-hidden="true">ℹ</span>
-          <span>Access requires manual admin approval. You will be notified once your account is reviewed.</span>
-        </div>
+        <!-- How it works -->
+        <ol class="steps" style="margin-bottom:0.25rem">
+          <li class="step">
+            <span class="step__num">1</span>
+            <span class="step__text"><strong>Request Access</strong> — pick a username and password</span>
+          </li>
+          <li class="step">
+            <span class="step__num">2</span>
+            <span class="step__text"><strong>Get Approved</strong> — an admin reviews your request</span>
+          </li>
+          <li class="step">
+            <span class="step__num">3</span>
+            <span class="step__text"><strong>Manage Servers</strong> — start, stop, and monitor from your dashboard</span>
+          </li>
+        </ol>
 
         <form id="register-form" novalidate autocomplete="off">
           <div class="flex-col gap-md">

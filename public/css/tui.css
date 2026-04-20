@@ -1044,10 +1044,11 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
+  justify-content: flex-start;
+  padding: 3rem 1rem 2rem;
   text-align: center;
-  gap: 2rem;
+  gap: 1.5rem;
+  overflow-y: auto;
 }
 
 .ascii-logo {
@@ -1087,10 +1088,11 @@ a:hover { color: var(--lavender); text-decoration: underline; }
 
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
-  max-width: 800px;
+  max-width: 560px;
   width: 100%;
+  margin: 0 auto;
 }
 
 .feature-card {
@@ -1117,6 +1119,55 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   font-size: 0.75rem;
   color: var(--overlay1);
   line-height: 1.5;
+}
+
+/* Steps card ("How It Works") */
+.feature-card--steps {
+  grid-column: 1 / -1;
+}
+
+.steps {
+  list-style: none;
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--overlay1);
+  line-height: 1.5;
+}
+
+.step__num {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface1);
+  color: var(--blue);
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 0.05rem;
+}
+
+.step strong {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .steps {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 
 /* ── Auth page (centered card) ────────────────────────────── */
@@ -1313,6 +1364,9 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   }
   .titlebar__graphs {
     display: none;
+  }
+  .features {
+    grid-template-columns: 1fr;
   }
 }
 

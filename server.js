@@ -504,6 +504,22 @@ app.post("/api/admin/users/:id/deny", adminWriteLimiter, requireAdmin, requireVa
   res.json({ message: `User "${user.username}" denied` });
 });
 
+// POST /api/admin/users/:id/delete — permanently remove a non-admin user
+app.post("/api/admin/users/:id/delete", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
+  const users = loadUsers();
+  const idx = users.findIndex((u) => u.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  if (users[idx].role === "admin") {
+    return res.status(400).json({ error: "Admin accounts cannot be deleted" });
+  }
+  const deleted = users.splice(idx, 1)[0];
+  saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" deleted user "${deleted.username}"`);
+  res.json({ message: `User "${deleted.username}" deleted` });
+});
+
 // POST /api/admin/users/:id/revoke — revert back to pending
 app.post("/api/admin/users/:id/revoke", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
   const users = loadUsers();
@@ -965,7 +981,7 @@ app.use("/api", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Fallback: serve index.html for any unknown route (SPA-style navigation)
+// Fallback: serve 404 page for any unknown route
 // ---------------------------------------------------------------------------
 
 const staticLimiter = rateLimit({
@@ -976,10 +992,11 @@ const staticLimiter = rateLimit({
   message: { error: "Too many requests. Please slow down." },
 });
 
+const HTML_404 = fs.readFileSync(path.join(__dirname, "public", "404.html"), "utf8");
+
 app.get("*", staticLimiter, (req, res) => {
-  // Only serve index.html for non-API, non-static requests
   if (!req.path.startsWith("/api/")) {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    res.status(404).type("html").send(HTML_404);
   } else {
     res.status(404).json({ error: "Not found" });
   }

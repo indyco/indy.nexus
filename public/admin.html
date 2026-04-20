@@ -847,6 +847,10 @@
       }
       if (userAction === "reset-password") {
         resetUserPassword(userId);
+        return;
+      }
+      if (userAction === "delete") {
+        deleteUser(userId);
       }
     };
 
@@ -958,13 +962,17 @@
       let actions = '';
       if (!isAdmin) {
         const resetAction = `<button class="btn btn--secondary btn--sm" data-user-action="reset-password" data-user-id="${safeId}" ${disabledAttr}>🔐 Reset Password</button>`;
+        const deleteAction = `<button class="btn btn--danger btn--sm" data-user-action="delete" data-user-id="${safeId}" ${disabledAttr}>🗑 Delete</button>`;
         actions = u.status === "pending"
           ? `<button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}" ${disabledAttr}>✔ Approve</button>
-             <button class="btn btn--danger btn--sm" data-user-action="deny" data-user-id="${safeId}" ${disabledAttr}>✖ Deny</button>`
+             <button class="btn btn--danger btn--sm" data-user-action="deny" data-user-id="${safeId}" ${disabledAttr}>✖ Deny</button>
+             ${deleteAction}`
           : u.status === "approved"
           ? `<button class="btn btn--ghost btn--sm" data-user-action="revoke" data-user-id="${safeId}" ${disabledAttr}>↩ Revoke</button>
-             ${resetAction}`
-          : `<button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}" ${disabledAttr}>✔ Approve</button>`;
+             ${resetAction}
+             ${deleteAction}`
+          : `<button class="btn btn--success btn--sm" data-user-action="approve" data-user-id="${safeId}" ${disabledAttr}>✔ Approve</button>
+             ${deleteAction}`;
       }
 
       return `
@@ -1032,6 +1040,28 @@
           const data = await apiFetch(`/api/admin/users/${id}/revoke`, { method: "POST" });
           showAlert(document.getElementById("all-alert"), data.message, "warning");
           await loadUsers();
+        } catch (err) {
+          showAlert(document.getElementById("all-alert"), err.message, "error");
+        }
+      },
+    });
+  }
+
+  async function deleteUser(id) {
+    if (!isValidUserId(id)) {
+      showAlert(document.getElementById("all-alert"), "Invalid user id.", "error");
+      return;
+    }
+    showConfirmDialog({
+      title: "Delete User",
+      message: "This will permanently delete this user account. This action cannot be undone.",
+      confirmText: "🗑 Delete",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/users/${id}/delete`, { method: "POST" });
+          showAlert(document.getElementById("all-alert"), data.message, "warning");
+          await loadUsers();
+          await loadAllUsersForRename();
         } catch (err) {
           showAlert(document.getElementById("all-alert"), err.message, "error");
         }
