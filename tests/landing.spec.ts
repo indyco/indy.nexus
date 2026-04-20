@@ -15,7 +15,7 @@ test.describe("Landing page", () => {
 
   test("shows feature cards", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".feature-card")).toHaveCount(2);
+    await expect(page.locator(".feature-card")).toHaveCount(3);
   });
 
   test("login button opens inline login form", async ({ page }) => {

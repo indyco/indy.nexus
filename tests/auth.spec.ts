@@ -63,7 +63,7 @@ test.describe("Register", () => {
 
   test("shows admin approval notice", async ({ page }) => {
     await page.goto("/register.html");
-    await expect(page.locator(".alert--info")).toContainText("admin approval");
+    await expect(page.locator(".steps")).toContainText("an admin reviews your request");
   });
 
   test("rejects mismatched passwords", async ({ page }) => {
