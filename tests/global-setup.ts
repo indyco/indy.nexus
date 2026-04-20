@@ -17,6 +17,8 @@ export default async function globalSetup() {
 
   // Seed admin user with a fresh bcrypt hash
   const adminHash = await bcrypt.hash("admin", 10);
+  // Seed a regular approved user for access-control tests
+  const userHash = await bcrypt.hash("password123", 10);
 
   const users = [
     {
@@ -24,6 +26,14 @@ export default async function globalSetup() {
       username: "admin",
       passwordHash: adminHash,
       role: "admin",
+      status: "approved",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000001",
+      username: "testuser",
+      passwordHash: userHash,
+      role: "user",
       status: "approved",
       createdAt: new Date().toISOString(),
     },
