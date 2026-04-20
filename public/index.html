@@ -127,17 +127,30 @@
       <!-- Feature Cards -->
       <div class="features" role="list" aria-label="Platform features">
         <article class="feature-card" role="listitem">
-          <div class="feature-card__icon">🎮</div>
+          <div class="feature-card__icon" aria-hidden="true">🎮</div>
           <h3 class="feature-card__title">Game Servers</h3>
           <p class="feature-card__desc">Host Minecraft, Valheim, CS2, and more from a single dashboard.</p>
         </article>
         <article class="feature-card" role="listitem">
-          <div class="feature-card__icon">📊</div>
+          <div class="feature-card__icon feature-card__icon--svg" aria-hidden="true">
+            <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="2,18 8,18 11,10 15,26 18,14 22,18 30,18"/>
+              <circle class="live-pulse" cx="26" cy="6" r="3" fill="var(--red)" stroke="none"/>
+            </svg>
+          </div>
           <h3 class="feature-card__title">Live Monitoring</h3>
           <p class="feature-card__desc">Real-time server status, player counts, and console output.</p>
         </article>
         <article class="feature-card feature-card--steps" role="listitem">
-          <div class="feature-card__icon">⚡</div>
+          <div class="feature-card__icon feature-card__icon--svg feature-card__icon--flow" aria-hidden="true">
+            <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle class="flow-node flow-node--1" cx="6"  cy="16" r="3" fill="currentColor"/>
+              <path d="M9.5 16 L12.5 16"/>
+              <circle class="flow-node flow-node--2" cx="16" cy="16" r="3" fill="currentColor"/>
+              <path d="M19.5 16 L22.5 16"/>
+              <circle class="flow-node flow-node--3" cx="26" cy="16" r="3" fill="currentColor"/>
+            </svg>
+          </div>
           <h3 class="feature-card__title">How It Works</h3>
           <ol class="steps">
             <li class="step">

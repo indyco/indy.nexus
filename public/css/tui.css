@@ -1101,14 +1101,62 @@ a:hover { color: var(--lavender); text-decoration: underline; }
   border-radius: var(--radius);
   padding: 1rem;
   text-align: left;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.85rem;
+  row-gap: 0.2rem;
+  align-items: start;
 }
 
 .feature-card__icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.5rem;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 1.9rem;
+  line-height: 1;
+  margin: 0;
+  color: var(--blue);
+}
+
+.feature-card__icon--svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(137, 180, 250, 0.35));
+}
+
+.feature-card__icon--svg .live-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.7); }
+}
+
+.feature-card__icon--flow .flow-node {
+  animation: flowNode 2.4s ease-in-out infinite;
+}
+
+.feature-card__icon--flow .flow-node--1 { animation-delay: 0s; }
+.feature-card__icon--flow .flow-node--2 { animation-delay: 0.3s; }
+.feature-card__icon--flow .flow-node--3 { animation-delay: 0.6s; }
+
+@keyframes flowNode {
+  0%, 60%, 100% { opacity: 0.35; }
+  20%, 40%      { opacity: 1; }
 }
 
 .feature-card__title {
+  grid-column: 2;
+  grid-row: 1;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text);
@@ -1116,6 +1164,8 @@ a:hover { color: var(--lavender); text-decoration: underline; }
 }
 
 .feature-card__desc {
+  grid-column: 2;
+  grid-row: 2;
   font-size: 0.75rem;
   color: var(--overlay1);
   line-height: 1.5;
@@ -1124,6 +1174,25 @@ a:hover { color: var(--lavender); text-decoration: underline; }
 /* Steps card ("How It Works") */
 .feature-card--steps {
   grid-column: 1 / -1;
+  grid-template-columns: 1fr auto auto 1fr;
+}
+
+.feature-card--steps .feature-card__icon {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+.feature-card--steps .feature-card__title {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  margin-bottom: 0;
+}
+
+.feature-card--steps .steps {
+  grid-column: 1 / -1;
+  margin-top: 0.6rem;
 }
 
 .steps {
