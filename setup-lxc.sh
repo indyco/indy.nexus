@@ -86,7 +86,7 @@ fi
 # ---------------------------------------------------------------------------
 info "Installing npm dependencies..."
 cd "$APP_DIR"
-npm install --production --no-audit --no-fund
+npm install --omit=dev --no-audit --no-fund
 
 # ---------------------------------------------------------------------------
 # Create system user

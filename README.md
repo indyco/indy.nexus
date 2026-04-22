@@ -162,7 +162,7 @@ Use the `>_` action button on a server row to open that server's console panel. 
 After the initial install via `setup-lxc.sh`, the LXC will keep itself in sync with `origin/main` automatically. A systemd timer (`indy-nexus-update.timer`) fires every 5 minutes and runs `update-lxc.sh`, which:
 
 1. Fetches `origin/main` and compares against the local HEAD.
-2. If there are new commits, fast-forwards, re-runs `npm install --production` **only when `package.json` or `package-lock.json` changed**, re-asserts ownership, and restarts `indy-nexus.service`.
+2. If there are new commits, fast-forwards, re-runs `npm install --omit=dev` **only when `package.json` or `package-lock.json` changed**, re-asserts ownership, and restarts `indy-nexus.service`.
 3. Uses a lock file (`/run/indy-nexus-update.lock`) to prevent overlapping runs.
 
 So the normal workflow is simply:

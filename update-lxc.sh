@@ -213,7 +213,7 @@ git pull --ff-only --quiet origin "$BRANCH"
 
 if [[ $LOCKFILE_CHANGED -eq 1 ]]; then
   info "Dependencies changed — running npm install..."
-  npm install --production --no-audit --no-fund
+  npm install --omit=dev --no-audit --no-fund
 else
   info "No dependency changes detected; skipping npm install."
 fi
