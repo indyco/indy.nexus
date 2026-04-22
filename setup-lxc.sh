@@ -142,12 +142,8 @@ ExecStart=/usr/local/bin/node server.js
 Restart=on-failure
 RestartSec=5
 
-# Hardening
+# Hardening (namespace-based options omitted: not supported in LXC containers)
 NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=${APP_DIR}/data
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
