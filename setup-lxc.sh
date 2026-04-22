@@ -157,11 +157,33 @@ mkdir -p "${APP_DIR}/data"
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}/data"
 
 # ---------------------------------------------------------------------------
+# Install auto-update timer (pulls origin/main every 5 minutes)
+# ---------------------------------------------------------------------------
+info "Installing auto-update timer..."
+chmod +x "${APP_DIR}/update-lxc.sh"
+install -m 0644 "${APP_DIR}/systemd/indy-nexus-update.service" /etc/systemd/system/indy-nexus-update.service
+install -m 0644 "${APP_DIR}/systemd/indy-nexus-update.timer"   /etc/systemd/system/indy-nexus-update.timer
+
+# ---------------------------------------------------------------------------
+# Install signature-verification config examples
+#
+# We install *.example files only; the operator must copy them into place
+# and fill in real values to enable enforcement. This keeps the updater
+# backwards-compatible on existing deployments (it falls back to the
+# legacy unverified path until the real files exist).
+# ---------------------------------------------------------------------------
+info "Installing signing config examples..."
+install -d -m 0755 /etc/indy-nexus
+install -m 0644 "${APP_DIR}/systemd/allowed_signers.example"           /etc/indy-nexus/allowed_signers.example
+install -m 0644 "${APP_DIR}/systemd/indy-nexus-update.env.example"     /etc/default/indy-nexus-update.example
+
+# ---------------------------------------------------------------------------
 # Start the service
 # ---------------------------------------------------------------------------
 info "Starting indy-nexus service..."
 systemctl daemon-reload
 systemctl enable --now indy-nexus
+systemctl enable --now indy-nexus-update.timer
 
 # ---------------------------------------------------------------------------
 # Summary
@@ -172,10 +194,19 @@ echo ""
 echo "  Portal:   http://$(hostname -I | awk '{print $1}'):3000"
 echo "  Service:  systemctl status indy-nexus"
 echo "  Logs:     journalctl -u indy-nexus -f"
+echo "  Updates:  systemctl status indy-nexus-update.timer   (pulls every 5 min)"
 echo ""
 echo "  Default login:  admin / admin"
 echo "  ⚠  Change the admin password immediately after first login."
 echo ""
 echo "  To configure game servers, create ${APP_DIR}/data/services.json"
 echo "  (see ${APP_DIR}/data/services.json.example for the format)."
+echo ""
+warn "Auto-updates are currently UNVERIFIED."
+echo "  To enforce signed-commit verification (recommended):"
+echo "    1. sudo cp /etc/indy-nexus/allowed_signers.example /etc/indy-nexus/allowed_signers"
+echo "       and replace the placeholder with your SSH signing public key."
+echo "    2. sudo cp /etc/default/indy-nexus-update.example /etc/default/indy-nexus-update"
+echo "       and set ANCHOR_SHA to the first signed commit on main."
+echo "  See README.md > 'Securing auto-updates' for the full walkthrough."
 echo ""
