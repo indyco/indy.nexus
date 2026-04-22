@@ -121,7 +121,8 @@ SESSION_SECRET=$(openssl rand -hex 32)
 # ---------------------------------------------------------------------------
 # Create systemd service
 # ---------------------------------------------------------------------------
-info "Creating systemd service..."
+NODE_BIN=$(which node)
+info "Creating systemd service (node: ${NODE_BIN})..."
 cat > /etc/systemd/system/indy-nexus.service <<EOF
 [Unit]
 Description=indy.nexus game server portal
@@ -138,7 +139,7 @@ Environment=PROXMOX_HOST=${PVE_HOST}
 Environment=PROXMOX_NODE=${PVE_NODE}
 Environment=PROXMOX_TOKEN_ID=${PVE_TOKEN_ID}
 Environment=PROXMOX_TOKEN_SECRET=${PVE_TOKEN_SECRET}
-ExecStart=/usr/local/bin/node server.js
+ExecStart=${NODE_BIN} server.js
 Restart=on-failure
 RestartSec=5
 
