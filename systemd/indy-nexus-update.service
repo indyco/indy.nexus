@@ -6,7 +6,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/indy-nexus/update-lxc.sh
+# Invoke via bash explicitly so the script doesn't need the executable bit.
+# (The tree stores it as 0755, but this protects against a future checkout
+# where the mode gets lost.)
+ExecStart=/bin/bash /opt/indy-nexus/update-lxc.sh
 # Prevent a transient failure (e.g. brief network blip) from being treated
 # as a hard failure that masks subsequent timer runs.
 SuccessExitStatus=0
