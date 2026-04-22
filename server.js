@@ -24,6 +24,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PRODUCTION = NODE_ENV === "production";
+// Set to "true" when the app is behind an HTTPS-terminating proxy (e.g. Cloudflare Tunnel).
+// This enables the Secure flag on session cookies. Leave unset for plain HTTP local access.
+const HTTPS_ENABLED = process.env.HTTPS_ENABLED === "true";
+app.set("trust proxy", 1); // trust X-Forwarded-* headers from reverse proxies (Cloudflare, etc.)
 const IS_TEST_MODE = process.argv.includes("--test");
 const SESSION_SECRET_FROM_ENV = process.env.SESSION_SECRET;
 
@@ -224,8 +228,8 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "strict",
-      // Enable secure flag in production (HTTPS). For local dev over HTTP, keep false.
-      secure: IS_PRODUCTION,
+      // Enable Secure flag only when HTTPS is in use (set HTTPS_ENABLED=true behind Cloudflare Tunnel).
+      secure: IS_PRODUCTION && HTTPS_ENABLED,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
