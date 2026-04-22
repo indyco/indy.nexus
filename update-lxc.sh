@@ -70,7 +70,30 @@ error() { echo -e "${RED}[x]${NC} $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || error "This script must be run as root."
 [[ -d "$APP_DIR/.git" ]] || error "No git repository found at ${APP_DIR}."
 command -v git >/dev/null || error "git is not installed."
-command -v npm >/dev/null || error "npm is not installed."
+
+# When invoked by systemd, PATH is reduced and may not include the
+# directory containing node/npm (common layouts: /usr/local/bin from a
+# tarball install, or /root/.nvm/versions/node/<ver>/bin from nvm).
+# Probe the usual places and prepend the first hit to PATH so the later
+# `npm install` call works regardless of install style.
+if ! command -v npm >/dev/null 2>&1; then
+  shopt -s nullglob
+  _npm_candidates=(
+    /usr/local/bin/npm
+    /root/.nvm/versions/node/*/bin/npm
+    /home/*/.nvm/versions/node/*/bin/npm
+    /usr/bin/npm
+  )
+  shopt -u nullglob
+  for _c in "${_npm_candidates[@]}"; do
+    if [[ -x "$_c" ]]; then
+      export PATH="$(dirname "$_c"):${PATH}"
+      break
+    fi
+  done
+  unset _npm_candidates _c
+fi
+command -v npm >/dev/null || error "npm is not installed (PATH=$PATH)."
 
 # ---------------------------------------------------------------------------
 # Single-instance lock (prevents overlap if a pull takes longer than the
