@@ -17,7 +17,7 @@ set -euo pipefail
 APP_DIR="/opt/indy-nexus"
 APP_USER="indynexus"
 REPO_URL="https://github.com/indyco/indy.nexus.git"
-NODE_MAJOR=22
+NODE_MAJOR=24
 
 # ---------------------------------------------------------------------------
 # Colours
@@ -41,7 +41,7 @@ apt-get update -qq
 apt-get upgrade -y -qq
 
 # ---------------------------------------------------------------------------
-# Install Node.js 22.x from official binary tarball
+# Install Node.js 24.x from official binary tarball
 # ---------------------------------------------------------------------------
 if ! command -v node &>/dev/null; then
   info "Installing Node.js ${NODE_MAJOR}.x from official binary..."
@@ -57,9 +57,9 @@ if ! command -v node &>/dev/null; then
 else
   info "Node.js already installed: $(node --version)"
 fi
-# Node 22.x ships with npm 10.x — pin to known-good npm 11.12.1
-info "Installing npm 11.12.1..."
-npm install -g npm@11.12.1
+# Upgrade npm to latest stable
+info "Upgrading npm to latest..."
+npm install -g npm@latest
 info "node $(node --version), npm $(npm --version) ready."
 
 # ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ Environment=PROXMOX_HOST=${PVE_HOST}
 Environment=PROXMOX_NODE=${PVE_NODE}
 Environment=PROXMOX_TOKEN_ID=${PVE_TOKEN_ID}
 Environment=PROXMOX_TOKEN_SECRET=${PVE_TOKEN_SECRET}
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/local/bin/node server.js
 Restart=on-failure
 RestartSec=5
 
