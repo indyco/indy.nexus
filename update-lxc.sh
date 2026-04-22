@@ -26,6 +26,16 @@ LOCK_FILE="/run/indy-nexus-update.lock"
 ENV_FILE="/etc/default/indy-nexus-update"
 
 # ---------------------------------------------------------------------------
+# We run as root (via systemd), but the repo is chowned to ${APP_USER}.
+# Git ≥2.35 refuses cross-user access unless the path is marked safe.
+# Apply safe.directory via env so every git call in this script honours it,
+# independent of HOME or global config.
+# ---------------------------------------------------------------------------
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0="$APP_DIR"
+
+# ---------------------------------------------------------------------------
 # Load config (may override the defaults below)
 # ---------------------------------------------------------------------------
 REQUIRE_SIGNED="${REQUIRE_SIGNED:-0}"
