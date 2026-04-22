@@ -1,0 +1,13 @@
+[Unit]
+Description=indy.nexus auto-updater (pull, install deps, restart service)
+Documentation=https://github.com/indyco/indy.nexus
+After=network-online.target indy-nexus.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/indy-nexus/update-lxc.sh
+# Prevent a transient failure (e.g. brief network blip) from being treated
+# as a hard failure that masks subsequent timer runs.
+SuccessExitStatus=0
+Nice=10

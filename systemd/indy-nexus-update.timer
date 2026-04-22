@@ -1,0 +1,16 @@
+[Unit]
+Description=Run indy.nexus auto-updater every 5 minutes
+Documentation=https://github.com/indyco/indy.nexus
+
+[Timer]
+# Delay a little after boot so the main service has time to come up first.
+OnBootSec=2min
+# Then fire every 5 minutes from the previous activation.
+OnUnitActiveSec=5min
+# Catch up on missed runs (e.g. LXC was shut down) on next boot.
+Persistent=true
+AccuracySec=30s
+Unit=indy-nexus-update.service
+
+[Install]
+WantedBy=timers.target
