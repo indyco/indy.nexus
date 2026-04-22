@@ -195,6 +195,7 @@ app.use(
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
+        upgradeInsecureRequests: null, // server runs on HTTP; do not force HTTPS upgrades
       },
     },
     hsts: IS_PRODUCTION ? undefined : false,
