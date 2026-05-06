@@ -97,6 +97,26 @@ function findUser(predicate) {
 }
 
 /**
+ * Identify the root (first) admin. Checks for the explicit rootAdmin flag
+ * first, then falls back to the admin with the earliest createdAt date
+ * (handles data created before the flag existed).
+ */
+function findRootAdmin() {
+  const users = loadUsers();
+  const flagged = users.find((u) => u.role === "admin" && u.rootAdmin === true);
+  if (flagged) return flagged;
+  return users
+    .filter((u) => u.role === "admin")
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0] || null;
+}
+
+function isRootAdmin(user) {
+  if (!user || user.role !== "admin") return false;
+  const root = findRootAdmin();
+  return root && root.id === user.id;
+}
+
+/**
  * Load the service→VMID mapping from data/services.json.
  * Returns an empty array if the file does not exist (live mode will have
  * nothing to manage until the admin populates it).
@@ -167,6 +187,7 @@ const hash = await bcrypt.hash("admin", 10);
       username: "admin",
       passwordHash: hash,
       role: "admin",
+      rootAdmin: true,
       status: "approved",
       createdAt: new Date().toISOString(),
     });
@@ -357,6 +378,7 @@ app.get("/api/me", (req, res) => {
     username: user.username,
     role: user.role,
     status: user.status,
+    rootAdmin: isRootAdmin(user),
     mustChangePassword: !!user.mustChangePassword,
   });
 });
@@ -470,6 +492,7 @@ app.post("/api/logout", requireCsrfHeader, (req, res) => {
 
 // GET /api/admin/users — list all users (admin only)
 app.get("/api/admin/users", requireAdmin, (req, res) => {
+  const rootAdminUser = findRootAdmin();
   const users = loadUsers()
     .map(({ id, username, role, status, createdAt, mustChangePassword }) => ({
       id,
@@ -478,6 +501,7 @@ app.get("/api/admin/users", requireAdmin, (req, res) => {
       status,
       createdAt,
       mustChangePassword: !!mustChangePassword,
+      rootAdmin: rootAdminUser ? rootAdminUser.id === id : false,
     }));
   res.json(users);
 });
@@ -931,6 +955,52 @@ app.post("/api/admin/change-password", adminWriteLimiter, requireAdmin, requireC
   saveUsers(users);
   console.log(`[audit] Admin "${admin.username}" changed their password`);
   res.json({ message: "Password changed successfully" });
+});
+
+// POST /api/admin/users/:id/promote — promote an approved user to admin
+app.post("/api/admin/users/:id/promote", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
+  const users = loadUsers();
+  const user = users.find((u) => u.id === req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  if (user.role === "admin") {
+    return res.status(400).json({ error: "User is already an admin" });
+  }
+  if (user.status !== "approved") {
+    return res.status(400).json({ error: "Only approved users can be promoted to admin" });
+  }
+  user.role = "admin";
+  saveUsers(users);
+  console.log(`[audit] Admin "${req.currentUser.username}" promoted user "${user.username}" to admin`);
+  res.json({ message: `User "${user.username}" promoted to admin` });
+});
+
+// POST /api/admin/users/:id/demote — demote an admin back to user (root admin only)
+app.post("/api/admin/users/:id/demote", adminWriteLimiter, requireAdmin, requireValidUserIdParam, requireCsrfHeader, (req, res) => {
+  if (!isRootAdmin(req.currentUser)) {
+    return res.status(403).json({ error: "Only the root admin can demote other admins" });
+  }
+  const users = loadUsers();
+  const user = users.find((u) => u.id === req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  if (user.role !== "admin") {
+    return res.status(400).json({ error: "User is not an admin" });
+  }
+  // Prevent root admin from demoting themselves
+  if (user.id === req.currentUser.id) {
+    return res.status(400).json({ error: "The root admin cannot be demoted" });
+  }
+  // Prevent demoting users with the rootAdmin flag (safety check)
+  if (user.rootAdmin) {
+    return res.status(400).json({ error: "The root admin cannot be demoted" });
+  }
+  user.role = "user";
+  saveUsers(users);
+  console.log(`[audit] Root admin "${req.currentUser.username}" demoted admin "${user.username}" to user`);
+  res.json({ message: `Admin "${user.username}" demoted to user` });
 });
 
 // POST /api/admin/rename-user

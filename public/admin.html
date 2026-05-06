@@ -18,6 +18,22 @@
     .user-row td { vertical-align: middle; }
     .actions-cell { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
+    /* ── Sortable table headers ──────────────────────────── */
+    th[data-sort-key] {
+      cursor: pointer;
+      user-select: none;
+    }
+    th[data-sort-key]:hover { color: var(--text); }
+    th[data-sort-key] .sort-icon {
+      display: inline-block;
+      margin-left: 0.3em;
+      font-size: 0.85em;
+      opacity: 0.3;
+      vertical-align: baseline;
+    }
+    th[data-sort-key].sort-asc .sort-icon,
+    th[data-sort-key].sort-desc .sort-icon { opacity: 0.9; }
+
     /* ── Title-bar gauge meters ──────────────────────────── */
     .titlebar__graphs {
       display: flex;
@@ -252,9 +268,17 @@
             </div>
             <div class="overflow-auto">
               <table class="tui-table" id="pending-table" aria-label="Pending users table">
+                <colgroup>
+                  <col style="width:18%">
+                  <col style="width:10%">
+                  <col style="width:18%">
+                  <col style="width:14%">
+                  <col style="width:40%">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Username</th>
+                    <th style="text-align:center">Role</th>
                     <th>Requested</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -262,7 +286,7 @@
                 </thead>
                 <tbody id="pending-tbody">
                   <tr id="pending-empty">
-                    <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                    <td colspan="5" style="text-align:center; color:var(--overlay0); padding:1.5rem">
                       Loading…
                     </td>
                   </tr>
@@ -287,17 +311,25 @@
             </div>
             <div class="overflow-auto">
               <table class="tui-table" id="all-table" aria-label="All users table">
+                <colgroup>
+                  <col style="width:18%">
+                  <col style="width:10%">
+                  <col style="width:18%">
+                  <col style="width:14%">
+                  <col style="width:40%">
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Username</th>
-                    <th>Registered</th>
-                    <th>Status</th>
+                    <th data-sort-key="username">Username</th>
+                    <th data-sort-key="role" style="text-align:center">Role</th>
+                    <th data-sort-key="createdAt">Registered</th>
+                    <th data-sort-key="status">Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="all-tbody">
                   <tr id="all-empty">
-                    <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+                    <td colspan="5" style="text-align:center; color:var(--overlay0); padding:1.5rem">
                       Loading…
                     </td>
                   </tr>
@@ -404,6 +436,15 @@
                 >
                   👤 Rename User
                 </button>
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  id="toggle-manage-roles-panel"
+                  aria-controls="manage-roles-panel"
+                  aria-expanded="false"
+                >
+                  👑 Manage Roles
+                </button>
               </div>
             </div>
           </div>
@@ -445,7 +486,7 @@
             </div>
           </div>
 
-          <div class="panel hidden" id="rename-user-panel" style="max-width:440px">
+          <div class="panel hidden" id="rename-user-panel" style="max-width:440px; margin-bottom:1.5rem">
             <div class="panel__title">
               <span class="icon" aria-hidden="true">👤</span>
               Rename User
@@ -475,6 +516,30 @@
                   </button>
                 </div>
               </form>
+
+            </div>
+          </div>
+
+          <div class="panel hidden" id="manage-roles-panel" style="max-width:440px">
+            <div class="panel__title">
+              <span class="icon" aria-hidden="true">👑</span>
+              Manage Roles
+            </div>
+            <div class="panel__body flex-col gap-md">
+
+              <div id="roles-alert" role="alert" aria-live="polite"></div>
+
+              <div class="flex-col gap-md">
+                <div class="field">
+                  <label for="role-user-select">Select User <span class="req">*</span></label>
+                  <select id="role-user-select" class="input" required aria-required="true">
+                    <option value="">Loading users...</option>
+                  </select>
+                  <span class="text-xs text-muted" style="margin-top:.2rem">Only approved users can be promoted. Only the root admin can demote.</span>
+                </div>
+                <div id="role-info" style="font-size:0.82rem; color:var(--overlay1)"></div>
+                <div id="role-action-container"></div>
+              </div>
 
             </div>
           </div>
@@ -545,6 +610,8 @@
 
   let currentUser = null;
   let serversTab = null;
+  let allUsersCache = [];
+  let allUsersSort = { key: 'username', dir: 'asc' };
   let selectedAdminConsoleServiceId = null;
   const adminKnownServicesById = new Map();
   const adminServiceActionLogs = new Map();
@@ -741,7 +808,9 @@
     // Rename user form
     document.getElementById("rename-user-form").addEventListener("submit", onRenameUser);
     loadAllUsersForRename();
+    initRoleManagement();
     initSettingsActionButtons();
+    initAllUsersSort();
     bindUserActionButtons();
 
     // Global shortcuts
@@ -788,25 +857,26 @@
   function initSettingsActionButtons() {
     const passwordToggle = document.getElementById("toggle-change-password-panel");
     const renameToggle = document.getElementById("toggle-rename-user-panel");
+    const rolesToggle = document.getElementById("toggle-manage-roles-panel");
     const passwordPanel = document.getElementById("change-password-panel");
     const renamePanel = document.getElementById("rename-user-panel");
+    const rolesPanel = document.getElementById("manage-roles-panel");
 
-    if (!passwordToggle || !renameToggle || !passwordPanel || !renamePanel) return;
+    if (!passwordToggle || !renameToggle || !rolesToggle || !passwordPanel || !renamePanel || !rolesPanel) return;
+
+    const toggles = [passwordToggle, renameToggle, rolesToggle];
+    const panels = { password: passwordPanel, rename: renamePanel, roles: rolesPanel };
+    const toggleMap = { password: passwordToggle, rename: renameToggle, roles: rolesToggle };
 
     const setActivePanel = (panelName) => {
-      const showPassword = panelName === "password";
-      const showRename = panelName === "rename";
-
-      passwordPanel.classList.toggle("hidden", !showPassword);
-      renamePanel.classList.toggle("hidden", !showRename);
-
-      passwordToggle.setAttribute("aria-expanded", showPassword ? "true" : "false");
-      renameToggle.setAttribute("aria-expanded", showRename ? "true" : "false");
-
-      passwordToggle.classList.toggle("btn--primary", showPassword);
-      passwordToggle.classList.toggle("btn--secondary", !showPassword);
-      renameToggle.classList.toggle("btn--primary", showRename);
-      renameToggle.classList.toggle("btn--secondary", !showRename);
+      for (const [key, panel] of Object.entries(panels)) {
+        const show = key === panelName;
+        panel.classList.toggle("hidden", !show);
+        toggleMap[key].setAttribute("aria-expanded", show ? "true" : "false");
+        toggleMap[key].classList.toggle("btn--primary", show);
+        toggleMap[key].classList.toggle("btn--secondary", !show);
+      }
+      if (panelName === "roles") loadUsersForRoleManagement();
     };
 
     passwordToggle.addEventListener("click", () => {
@@ -817,6 +887,11 @@
     renameToggle.addEventListener("click", () => {
       const isOpen = !renamePanel.classList.contains("hidden");
       setActivePanel(isOpen ? null : "rename");
+    });
+
+    rolesToggle.addEventListener("click", () => {
+      const isOpen = !rolesPanel.classList.contains("hidden");
+      setActivePanel(isOpen ? null : "roles");
     });
 
     setActivePanel(null);
@@ -873,8 +948,9 @@
   async function loadUsers() {
     try {
       const users = await apiFetch("/api/admin/users");
+      allUsersCache = users;
       renderPending(users.filter((u) => u.status === "pending"));
-      renderAllUsers(users);
+      renderAllUsers(sortUsers(users));
       document.getElementById("pending-count").textContent = users.filter((u) => u.status === "pending").length;
       document.getElementById("all-count").textContent = users.length;
       document.getElementById("statusbar-info").textContent =
@@ -882,6 +958,64 @@
     } catch (err) {
       showAlert(document.getElementById("pending-alert"), err.message, "error");
     }
+  }
+
+  // ── All Users table sorting ─────────────────────────────────────────────────
+
+  function initAllUsersSort() {
+    const thead = document.querySelector("#all-table thead");
+    if (!thead) return;
+    thead.addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort-key]");
+      if (!th) return;
+      const key = th.dataset.sortKey;
+      if (allUsersSort.key === key) {
+        allUsersSort.dir = allUsersSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        allUsersSort.key = key;
+        allUsersSort.dir = "asc";
+      }
+      updateSortIndicators();
+      renderAllUsers(sortUsers(allUsersCache));
+    });
+    updateSortIndicators();
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll("#all-table th[data-sort-key]").forEach((th) => {
+      th.classList.remove("sort-asc", "sort-desc");
+      // Remove any existing sort-icon span
+      const existing = th.querySelector(".sort-icon");
+      if (existing) existing.remove();
+
+      const isActive = th.dataset.sortKey === allUsersSort.key;
+      const icon = isActive
+        ? (allUsersSort.dir === "asc" ? "\u25B2" : "\u25BC")
+        : "\u21C5";
+      if (isActive) {
+        th.classList.add(allUsersSort.dir === "asc" ? "sort-asc" : "sort-desc");
+      }
+      const span = document.createElement("span");
+      span.className = "sort-icon";
+      span.textContent = icon;
+      th.appendChild(span);
+    });
+  }
+
+  function sortUsers(users) {
+    const { key, dir } = allUsersSort;
+    const mult = dir === "asc" ? 1 : -1;
+    return [...users].sort((a, b) => {
+      let aVal, bVal;
+      if (key === "createdAt") {
+        aVal = new Date(a.createdAt || 0).getTime();
+        bVal = new Date(b.createdAt || 0).getTime();
+        return (aVal - bVal) * mult;
+      }
+      aVal = String(a[key] || "").toLowerCase();
+      bVal = String(b[key] || "").toLowerCase();
+      return aVal.localeCompare(bVal) * mult;
+    });
   }
 
   function formatDate(iso) {
@@ -897,7 +1031,7 @@
     if (users.length === 0) {
       tbody.innerHTML = `
         <tr id="pending-empty">
-          <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+          <td colspan="5" style="text-align:center; color:var(--overlay0); padding:1.5rem">
             No pending requests — you're all caught up! ✔
           </td>
         </tr>`;
@@ -912,6 +1046,7 @@
       return `
       <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — pending">
         <td><strong>${escapeHtml(u.username)}</strong></td>
+<td style="text-align:center"><span class="tag" style="font-size:0.78rem; padding:0.1rem 0.45rem; border-radius:2px">User</span></td>
         <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
         <td><span class="badge badge--pending">⏳ Pending</span></td>
         <td>
@@ -935,7 +1070,7 @@
     if (users.length === 0) {
       tbody.innerHTML = `
         <tr id="all-empty">
-          <td colspan="4" style="text-align:center; color:var(--overlay0); padding:1.5rem">
+          <td colspan="5" style="text-align:center; color:var(--overlay0); padding:1.5rem">
             No users found
           </td>
         </tr>`;
@@ -945,9 +1080,11 @@
     tbody.innerHTML = users.map((u) => {
       const isAdmin = u.role === "admin";
 
-      const statusBadge = isAdmin
-        ? `<span class="tag mauve" style="font-size:0.68rem; padding:0.1rem 0.45rem; border-radius:2px">ADMIN</span>`
-        : {
+      const roleBadge = isAdmin
+        ? `<span class="tag mauve" style="font-size:0.78rem; padding:0.1rem 0.45rem; border-radius:2px">Admin</span>`
+        : `<span class="tag" style="font-size:0.78rem; padding:0.1rem 0.45rem; border-radius:2px">User</span>`;
+
+      const statusBadge = {
             pending:  `<span class="badge badge--pending">⏳ Pending</span>`,
             approved: `<span class="badge badge--approved">✔ Approved</span>`,
             denied:   `<span class="badge badge--denied">✖ Denied</span>`,
@@ -978,6 +1115,7 @@
       return `
         <tr class="user-row" tabindex="0" data-nav-item role="row" aria-label="${escapeHtml(u.username)} — ${isAdmin ? 'admin' : u.status}">
           <td><strong>${escapeHtml(u.username)}</strong></td>
+          <td style="text-align:center">${roleBadge}</td>
           <td class="text-muted text-sm">${formatDate(u.createdAt)}</td>
           <td>${statusBadge}</td>
           <td><div class="actions-cell">${actions}</div></td>
@@ -1163,6 +1301,126 @@
     } finally {
       setButtonLoading(btn, false);
     }
+  }
+
+  // ── Role management ──────────────────────────────────────────────
+
+  let roleUserCache = [];
+
+  function initRoleManagement() {
+    const select = document.getElementById("role-user-select");
+    if (!select) return;
+    select.addEventListener("change", onRoleUserSelected);
+  }
+
+  async function loadUsersForRoleManagement() {
+    try {
+      const users = await apiFetch("/api/admin/users");
+      roleUserCache = users.filter((u) => isValidUserId(u.id));
+      const select = document.getElementById("role-user-select");
+
+      // Exclude the current user (can't change own role) unless root admin viewing other admins
+      const eligible = roleUserCache.filter((u) => {
+        // Show approved non-admin users (promotable)
+        if (u.role !== "admin" && u.status === "approved") return true;
+        // Show non-root admins (demotable, if current user is root)
+        if (u.role === "admin" && !u.rootAdmin && u.id !== currentUser?.id) return true;
+        return false;
+      });
+
+      if (eligible.length === 0) {
+        select.innerHTML = '<option value="">No eligible users</option>';
+        document.getElementById("role-info").textContent = "";
+        document.getElementById("role-action-container").innerHTML = "";
+        return;
+      }
+
+      eligible.sort((a, b) => a.username.localeCompare(b.username));
+      select.innerHTML = '<option value="">Select a user...</option>' +
+        eligible.map(u => {
+          const roleTag = u.role === 'admin' ? ' (Admin)' : '';
+          return `<option value="${escapeHtml(u.id)}">${escapeHtml(u.username)}${roleTag}</option>`;
+        }).join("");
+
+      document.getElementById("role-info").textContent = "";
+      document.getElementById("role-action-container").innerHTML = "";
+    } catch (err) {
+      console.error('Failed to load users for role management:', err);
+    }
+  }
+
+  function onRoleUserSelected() {
+    const select = document.getElementById("role-user-select");
+    const infoEl = document.getElementById("role-info");
+    const actionEl = document.getElementById("role-action-container");
+    const userId = select.value;
+    clearAlert(document.getElementById("roles-alert"));
+
+    if (!userId) {
+      infoEl.textContent = "";
+      actionEl.innerHTML = "";
+      return;
+    }
+
+    const user = roleUserCache.find((u) => u.id === userId);
+    if (!user) return;
+
+    const isAdminUser = user.role === "admin";
+    const isCurrentRootAdmin = currentUser?.rootAdmin === true;
+
+    if (isAdminUser) {
+      infoEl.innerHTML = `<strong>${escapeHtml(user.username)}</strong> is currently an <span class="tag mauve" style="font-size:0.72rem; padding:0.08rem 0.35rem; border-radius:2px">Admin</span>`;
+      if (isCurrentRootAdmin && !user.rootAdmin) {
+        actionEl.innerHTML = `<button class="btn btn--danger" id="demote-btn">↓ Demote to User</button>`;
+        document.getElementById("demote-btn").addEventListener("click", () => demoteUser(userId));
+      } else {
+        actionEl.innerHTML = `<span class="text-xs text-muted">Only the root admin can demote other admins.</span>`;
+      }
+    } else {
+      infoEl.innerHTML = `<strong>${escapeHtml(user.username)}</strong> is currently a <span class="tag" style="font-size:0.72rem; padding:0.08rem 0.35rem; border-radius:2px">User</span>`;
+      actionEl.innerHTML = `<button class="btn btn--primary" id="promote-btn">↑ Promote to Admin</button>`;
+      document.getElementById("promote-btn").addEventListener("click", () => promoteUser(userId));
+    }
+  }
+
+  async function promoteUser(id) {
+    const alertEl = document.getElementById("roles-alert");
+    showConfirmDialog({
+      title: "Promote to Admin",
+      message: "This will give the user full admin privileges. Are you sure?",
+      confirmText: "↑ Promote",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/users/${id}/promote`, { method: "POST" });
+          showAlert(alertEl, data.message, "success");
+          await loadUsers();
+          await loadAllUsersForRename();
+          await loadUsersForRoleManagement();
+        } catch (err) {
+          showAlert(alertEl, err.message, "error");
+        }
+      },
+    });
+  }
+
+  async function demoteUser(id) {
+    const alertEl = document.getElementById("roles-alert");
+    showConfirmDialog({
+      title: "Demote to User",
+      message: "This will remove admin privileges from this user. Are you sure?",
+      confirmText: "↓ Demote",
+      onConfirm: async () => {
+        try {
+          const data = await apiFetch(`/api/admin/users/${id}/demote`, { method: "POST" });
+          showAlert(alertEl, data.message, "warning");
+          await loadUsers();
+          await loadAllUsersForRename();
+          await loadUsersForRoleManagement();
+        } catch (err) {
+          showAlert(alertEl, err.message, "error");
+        }
+      },
+    });
   }
 
   // ── Rename user ─────────────────────────────────────────────────
